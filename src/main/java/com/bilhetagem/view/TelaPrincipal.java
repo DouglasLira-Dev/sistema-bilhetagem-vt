@@ -683,9 +683,10 @@ public class TelaPrincipal extends JFrame {
      * Abre a tela de exportação.
      */
     private void abrirExportacao() {
-        JOptionPane.showMessageDialog(this,
-            "Funcionalidade em desenvolvimento.",
-            "Exportação", JOptionPane.INFORMATION_MESSAGE);
+        SwingUtilities.invokeLater(() -> {
+            TelaExportacao tela = new TelaExportacao(this);
+            tela.setVisible(true);
+        });
     }
     
     /**
