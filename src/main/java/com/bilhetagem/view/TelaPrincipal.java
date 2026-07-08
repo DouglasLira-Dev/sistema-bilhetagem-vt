@@ -690,19 +690,19 @@ public class TelaPrincipal extends JFrame {
      * Abre o relatório mensal.
      */
     private void abrirRelatorioMensal() {
-        JOptionPane.showMessageDialog(this,
-            "Funcionalidade em desenvolvimento.",
-            "Relatório Mensal", JOptionPane.INFORMATION_MESSAGE);
+        SwingUtilities.invokeLater(() -> {
+            TelaRelatorio tela = new TelaRelatorio();
+            tela.setVisible(true);
+        });
     }
     
     /**
      * Abre os gráficos.
      */
     private void abrirGraficos() {
-        JOptionPane.showMessageDialog(this,
-            "Funcionalidade em desenvolvimento.",
-            "Gráficos", JOptionPane.INFORMATION_MESSAGE);
-    }
+        abrirRelatorioMensal();
+        }
+    
     
     /**
      * Mostra a tela sobre.

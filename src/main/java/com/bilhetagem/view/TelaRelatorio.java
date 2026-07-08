@@ -1,0 +1,499 @@
+package com.bilhetagem.view;
+
+import com.bilhetagem.dao.SolicitacaoDAO;
+import com.bilhetagem.dao.SolicitacaoDAOImpl;
+import com.bilhetagem.model.Solicitacao;
+import com.bilhetagem.model.Solicitacao.TipoSolicitacao;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.CategoryPlot;
+import org.jfree.chart.plot.PiePlot;
+import org.jfree.chart.renderer.category.BarRenderer;
+import org.jfree.data.category.DefaultCategoryDataset;
+import org.jfree.data.general.DefaultPieDataset;
+import org.jfree.chart.labels.StandardPieSectionLabelGenerator;
+
+import javax.swing.*;
+import javax.swing.border.TitledBorder;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.sql.SQLException;
+import java.text.DecimalFormat;
+import java.util.*;
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * Tela de relatórios e gráficos do sistema.
+ * 
+ * <p>Esta classe implementa a visualização de dados com gráficos
+ * de barras e pizza, além de tabelas consolidadas por mês.</p>
+ * 
+ * @author [Seu Nome]
+ * @version 1.0.0
+ * @since 2026-01-08
+ */
+public class TelaRelatorio extends JFrame {
+    
+    private static final Logger LOGGER = LogManager.getLogger(TelaRelatorio.class);
+    
+    // ===== COMPONENTES =====
+    private JComboBox<String> cbMesReferencia;
+    private JTable tabelaResumo;
+    private DefaultTableModel modeloTabela;
+    private JPanel panelGraficoBarras;
+    private JPanel panelGraficoPizza;
+    private JLabel lblTotalPeriodo;
+    private JLabel lblAdesoesPeriodo;
+    private JLabel lblRenunciasPeriodo;
+    private JLabel lblAlteracoesPeriodo;
+    
+    // ===== DADOS =====
+    private SolicitacaoDAO dao;
+    private List<Solicitacao> todasSolicitacoes;
+    private Map<String, Map<String, Long>> dadosConsolidados;
+    
+    // ===== CORES =====
+    private static final Color COR_SUCESSO = new Color(46, 204, 113);
+    private static final Color COR_PERIGO = new Color(231, 76, 60);
+    private static final Color COR_AVISO = new Color(241, 196, 15);
+    private static final Color COR_PRIMARIA = new Color(52, 152, 219);
+    
+    /**
+     * Construtor da tela de relatórios.
+     */
+    public TelaRelatorio() {
+        dao = new SolicitacaoDAOImpl();
+        dadosConsolidados = new LinkedHashMap<>();
+        
+        configurarJanela();
+        criarPainelPrincipal();
+        carregarDados();
+        
+        LOGGER.info("📊 Tela de relatórios inicializada");
+    }
+    
+    /**
+     * Configura as propriedades da janela.
+     */
+    private void configurarJanela() {
+        setTitle("📊 Relatórios e Gráficos - Vale Transporte");
+        setSize(1200, 800);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLayout(new BorderLayout(10, 10));
+    }
+    
+    /**
+     * Cria o painel principal da tela.
+     */
+    private void criarPainelPrincipal() {
+        // Painel superior - Filtros
+        JPanel panelSuperior = criarPainelFiltros();
+        add(panelSuperior, BorderLayout.NORTH);
+        
+        // Painel central - Gráficos
+        JPanel panelCentral = criarPainelGraficos();
+        add(panelCentral, BorderLayout.CENTER);
+        
+        // Painel inferior - Tabela e totalizadores
+        JPanel panelInferior = criarPainelInferior();
+        add(panelInferior, BorderLayout.SOUTH);
+    }
+    
+    /**
+     * Cria o painel de filtros.
+     */
+    private JPanel criarPainelFiltros() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        panel.setBackground(new Color(240, 244, 248));
+        
+        // Filtro de mês
+        JPanel panelFiltros = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
+        panelFiltros.setOpaque(false);
+        
+        JLabel lblMes = new JLabel("📅 Mês de Referência:");
+        lblMes.setFont(new Font("Arial", Font.BOLD, 13));
+        
+        cbMesReferencia = new JComboBox<>();
+        cbMesReferencia.addItem("Todos os Meses");
+        cbMesReferencia.setPreferredSize(new Dimension(150, 30));
+        cbMesReferencia.addActionListener(e -> atualizarRelatorio());
+        
+        JButton btnAtualizar = new JButton("🔄 Atualizar");
+        btnAtualizar.setBackground(COR_PRIMARIA);
+        btnAtualizar.setForeground(Color.WHITE);
+        btnAtualizar.setFont(new Font("Arial", Font.BOLD, 12));
+        btnAtualizar.addActionListener(e -> atualizarRelatorio());
+        
+        JButton btnExportar = new JButton("📤 Exportar Excel");
+        btnExportar.setBackground(new Color(46, 204, 113));
+        btnExportar.setForeground(Color.WHITE);
+        btnExportar.setFont(new Font("Arial", Font.BOLD, 12));
+        btnExportar.addActionListener(e -> exportarRelatorio());
+        
+        panelFiltros.add(lblMes);
+        panelFiltros.add(cbMesReferencia);
+        panelFiltros.add(btnAtualizar);
+        panelFiltros.add(btnExportar);
+        
+        // Totalizadores rápidos
+        JPanel panelTotalizadores = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 5));
+        panelTotalizadores.setOpaque(false);
+        
+        lblTotalPeriodo = criarLabelTotalizador("📊 Total:", "0", Color.BLACK);
+        lblAdesoesPeriodo = criarLabelTotalizador("✅ Adesões:", "0", COR_SUCESSO);
+        lblRenunciasPeriodo = criarLabelTotalizador("❌ Renúncias:", "0", COR_PERIGO);
+        lblAlteracoesPeriodo = criarLabelTotalizador("🔄 Alterações:", "0", COR_AVISO);
+        
+        panelTotalizadores.add(lblTotalPeriodo);
+        panelTotalizadores.add(lblAdesoesPeriodo);
+        panelTotalizadores.add(lblRenunciasPeriodo);
+        panelTotalizadores.add(lblAlteracoesPeriodo);
+        
+        panel.add(panelFiltros, BorderLayout.WEST);
+        panel.add(panelTotalizadores, BorderLayout.EAST);
+        
+        return panel;
+    }
+    
+    /**
+     * Cria o painel com os gráficos.
+     */
+    private JPanel criarPainelGraficos() {
+        JPanel panel = new JPanel(new GridLayout(1, 2, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(0, 15, 10, 15));
+        
+        // Painel do gráfico de barras
+        panelGraficoBarras = new JPanel(new BorderLayout());
+        panelGraficoBarras.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(Color.LIGHT_GRAY),
+            "📊 Quantitativo por Tipo",
+            TitledBorder.CENTER,
+            TitledBorder.TOP,
+            new Font("Arial", Font.BOLD, 14)
+        ));
+        panelGraficoBarras.setBackground(Color.WHITE);
+        
+        // Painel do gráfico de pizza
+        panelGraficoPizza = new JPanel(new BorderLayout());
+        panelGraficoPizza.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(Color.LIGHT_GRAY),
+            "📈 Porcentagem por Tipo",
+            TitledBorder.CENTER,
+            TitledBorder.TOP,
+            new Font("Arial", Font.BOLD, 14)
+        ));
+        panelGraficoPizza.setBackground(Color.WHITE);
+        
+        // Adicionar gráficos placeholder
+        JLabel lblPlaceholder = new JLabel("Carregando gráficos...", SwingConstants.CENTER);
+        lblPlaceholder.setFont(new Font("Arial", Font.ITALIC, 16));
+        lblPlaceholder.setForeground(Color.GRAY);
+        panelGraficoBarras.add(lblPlaceholder, BorderLayout.CENTER);
+        panelGraficoPizza.add(lblPlaceholder, BorderLayout.CENTER);
+        
+        panel.add(panelGraficoBarras);
+        panel.add(panelGraficoPizza);
+        
+        return panel;
+    }
+    
+    /**
+     * Cria o painel inferior com tabela e totalizadores.
+     */
+    private JPanel criarPainelInferior() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(0, 15, 15, 15));
+        
+        // Tabela de resumo
+        String[] colunas = {"Mês Referência", "Adesões", "Renúncias", "Alterações", "Total"};
+        modeloTabela = new DefaultTableModel(colunas, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        
+        tabelaResumo = new JTable(modeloTabela);
+        tabelaResumo.setRowHeight(25);
+        tabelaResumo.setFont(new Font("Arial", Font.PLAIN, 12));
+        tabelaResumo.getTableHeader().setFont(new Font("Arial", Font.BOLD, 12));
+        tabelaResumo.getTableHeader().setBackground(new Color(52, 73, 94));
+        tabelaResumo.getTableHeader().setForeground(Color.WHITE);
+        
+        // Configurar largura das colunas
+        tabelaResumo.getColumnModel().getColumn(0).setPreferredWidth(100);
+        tabelaResumo.getColumnModel().getColumn(1).setPreferredWidth(80);
+        tabelaResumo.getColumnModel().getColumn(2).setPreferredWidth(80);
+        tabelaResumo.getColumnModel().getColumn(3).setPreferredWidth(80);
+        tabelaResumo.getColumnModel().getColumn(4).setPreferredWidth(80);
+        
+        JScrollPane scrollPane = new JScrollPane(tabelaResumo);
+        scrollPane.setPreferredSize(new Dimension(0, 200));
+        scrollPane.setBorder(BorderFactory.createTitledBorder(
+            "📋 Resumo Mensal"
+        ));
+        
+        panel.add(scrollPane, BorderLayout.CENTER);
+        
+        return panel;
+    }
+    
+    /**
+     * Cria um label estilizado para totalizadores.
+     */
+    private JLabel criarLabelTotalizador(String label, String valor, Color cor) {
+        JLabel lbl = new JLabel(label + " " + valor);
+        lbl.setFont(new Font("Arial", Font.BOLD, 13));
+        lbl.setForeground(cor);
+        return lbl;
+    }
+    
+    /**
+     * Carrega os dados do banco.
+     */
+    private void carregarDados() {
+        try {
+            LOGGER.info("🔄 Carregando dados para relatórios...");
+            todasSolicitacoes = dao.listarTodos();
+            
+            // Carregar meses no combo
+            carregarMeses();
+            
+            // Consolidar dados
+            consolidarDados();
+            
+            // Atualizar relatório
+            atualizarRelatorio();
+            
+            LOGGER.info("✅ Dados carregados: {} registros", todasSolicitacoes.size());
+        } catch (SQLException e) {
+            LOGGER.error("❌ Erro ao carregar dados", e);
+            JOptionPane.showMessageDialog(this,
+                "Erro ao carregar dados: " + e.getMessage(),
+                "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    /**
+     * Carrega os meses no combo box.
+     */
+    private void carregarMeses() {
+        Set<String> meses = todasSolicitacoes.stream()
+            .map(Solicitacao::getMesReferencia)
+            .filter(mes -> mes != null && !mes.isEmpty())
+            .sorted(Collections.reverseOrder())
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        
+        cbMesReferencia.removeAllItems();
+        cbMesReferencia.addItem("Todos os Meses");
+        for (String mes : meses) {
+            cbMesReferencia.addItem(mes);
+        }
+    }
+    
+    /**
+     * Consolida os dados por mês e tipo.
+     */
+    private void consolidarDados() {
+        dadosConsolidados.clear();
+        
+        for (Solicitacao s : todasSolicitacoes) {
+            String mes = s.getMesReferencia();
+            if (mes == null || mes.isEmpty()) continue;
+            
+            String tipo = s.getTipoSolicitacao() != null ? 
+                s.getTipoSolicitacao().getDescricao() : "Desconhecido";
+            
+            dadosConsolidados.putIfAbsent(mes, new HashMap<>());
+            Map<String, Long> tipos = dadosConsolidados.get(mes);
+            tipos.put(tipo, tipos.getOrDefault(tipo, 0L) + 1);
+        }
+    }
+    
+    /**
+     * Atualiza todos os componentes do relatório.
+     */
+    private void atualizarRelatorio() {
+        String mesSelecionado = (String) cbMesReferencia.getSelectedItem();
+        
+        // Filtrar dados
+        List<Solicitacao> filtradas = filtrarPorMes(mesSelecionado);
+        
+        // Atualizar totalizadores
+        atualizarTotalizadores(filtradas);
+        
+        // Atualizar gráficos
+        atualizarGraficos(filtradas);
+        
+        // Atualizar tabela resumo
+        atualizarTabela(mesSelecionado);
+    }
+    
+    /**
+     * Filtra as solicitações por mês.
+     */
+    private List<Solicitacao> filtrarPorMes(String mesSelecionado) {
+        if (mesSelecionado == null || mesSelecionado.equals("Todos os Meses")) {
+            return new ArrayList<>(todasSolicitacoes);
+        }
+        
+        return todasSolicitacoes.stream()
+            .filter(s -> mesSelecionado.equals(s.getMesReferencia()))
+            .collect(Collectors.toList());
+    }
+    
+    /**
+     * Atualiza os totalizadores.
+     */
+    private void atualizarTotalizadores(List<Solicitacao> lista) {
+        long total = lista.size();
+        long adesoes = lista.stream()
+            .filter(s -> s.getTipoSolicitacao() == TipoSolicitacao.ADESAO)
+            .count();
+        long renuncias = lista.stream()
+            .filter(s -> s.getTipoSolicitacao() == TipoSolicitacao.RENUNCIA)
+            .count();
+        long alteracoes = lista.stream()
+            .filter(s -> s.getTipoSolicitacao() == TipoSolicitacao.ALTERACAO)
+            .count();
+        
+        lblTotalPeriodo.setText("📊 Total: " + total);
+        lblAdesoesPeriodo.setText("✅ Adesões: " + adesoes);
+        lblRenunciasPeriodo.setText("❌ Renúncias: " + renuncias);
+        lblAlteracoesPeriodo.setText("🔄 Alterações: " + alteracoes);
+    }
+    
+    /**
+     * Atualiza os gráficos.
+     */
+    private void atualizarGraficos(List<Solicitacao> lista) {
+        // Limpar painéis
+        panelGraficoBarras.removeAll();
+        panelGraficoPizza.removeAll();
+        
+        // Calcular dados
+        long adesoes = lista.stream()
+            .filter(s -> s.getTipoSolicitacao() == TipoSolicitacao.ADESAO)
+            .count();
+        long renuncias = lista.stream()
+            .filter(s -> s.getTipoSolicitacao() == TipoSolicitacao.RENUNCIA)
+            .count();
+        long alteracoes = lista.stream()
+            .filter(s -> s.getTipoSolicitacao() == TipoSolicitacao.ALTERACAO)
+            .count();
+        
+        // Dataset para gráfico de barras
+        DefaultCategoryDataset datasetBarras = new DefaultCategoryDataset();
+        datasetBarras.addValue(adesoes, "Solicitações", "Adesões");
+        datasetBarras.addValue(renuncias, "Solicitações", "Renúncias");
+        datasetBarras.addValue(alteracoes, "Solicitações", "Alterações");
+        
+        // Criar gráfico de barras
+        JFreeChart chartBarras = ChartFactory.createBarChart(
+            "", // Título
+            "Tipo de Solicitação", // Eixo X
+            "Quantidade", // Eixo Y
+            datasetBarras
+        );
+        
+        // Personalizar gráfico de barras
+        CategoryPlot plotBarras = chartBarras.getCategoryPlot();
+        BarRenderer rendererBarras = (BarRenderer) plotBarras.getRenderer();
+        rendererBarras.setSeriesPaint(0, new Color(52, 152, 219));
+        rendererBarras.setMaximumBarWidth(0.5);
+        
+        // Adicionar cores individuais
+        rendererBarras.setSeriesPaint(0, COR_PRIMARIA);
+        
+        // Dataset para gráfico de pizza
+        DefaultPieDataset datasetPizza = new DefaultPieDataset();
+        datasetPizza.setValue("Adesões", adesoes);
+        datasetPizza.setValue("Renúncias", renuncias);
+        datasetPizza.setValue("Alterações", alteracoes);
+        
+        // Criar gráfico de pizza
+        JFreeChart chartPizza = ChartFactory.createPieChart(
+            "", // Título
+            datasetPizza,
+            true, // Legend
+            true,
+            false
+        );
+        
+        // Personalizar gráfico de pizza
+        PiePlot plotPizza = (PiePlot) chartPizza.getPlot();
+        plotPizza.setSectionPaint("Adesões", COR_SUCESSO);
+        plotPizza.setSectionPaint("Renúncias", COR_PERIGO);
+        plotPizza.setSectionPaint("Alterações", COR_AVISO);
+        plotPizza.setLabelGenerator(new StandardPieSectionLabelGenerator(
+            "{0}: {1} ({2})",
+            new DecimalFormat("0"), 
+            new DecimalFormat("0%")
+        ));
+        plotPizza.setExplodePercent("Adesões", 0.05);
+        plotPizza.setExplodePercent("Renúncias", 0.05);
+        plotPizza.setExplodePercent("Alterações", 0.05);
+        
+        // Adicionar gráficos aos painéis
+        ChartPanel panelBarras = new ChartPanel(chartBarras);
+        panelBarras.setPreferredSize(new Dimension(400, 300));
+        panelBarras.setBackground(Color.WHITE);
+        
+        ChartPanel panelPizza = new ChartPanel(chartPizza);
+        panelPizza.setPreferredSize(new Dimension(400, 300));
+        panelPizza.setBackground(Color.WHITE);
+        
+        panelGraficoBarras.add(panelBarras, BorderLayout.CENTER);
+        panelGraficoPizza.add(panelPizza, BorderLayout.CENTER);
+        
+        // Revalidar e repintar
+        panelGraficoBarras.revalidate();
+        panelGraficoBarras.repaint();
+        panelGraficoPizza.revalidate();
+        panelGraficoPizza.repaint();
+    }
+    
+    /**
+     * Atualiza a tabela de resumo.
+     */
+    private void atualizarTabela(String mesSelecionado) {
+        modeloTabela.setRowCount(0);
+        
+        // Ordenar meses
+        Set<String> meses = dadosConsolidados.keySet().stream()
+            .sorted(Collections.reverseOrder())
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        
+        for (String mes : meses) {
+            // Se tem filtro de mês, mostrar apenas o selecionado
+            if (!mesSelecionado.equals("Todos os Meses") && !mes.equals(mesSelecionado)) {
+                continue;
+            }
+            
+            Map<String, Long> tipos = dadosConsolidados.get(mes);
+            long adesoes = tipos.getOrDefault("Adesão", 0L);
+            long renuncias = tipos.getOrDefault("Renúncia", 0L);
+            long alteracoes = tipos.getOrDefault("Alteração", 0L);
+            long total = adesoes + renuncias + alteracoes;
+            
+            Object[] row = {mes, adesoes, renuncias, alteracoes, total};
+            modeloTabela.addRow(row);
+        }
+    }
+    
+    /**
+     * Exporta o relatório para Excel.
+     */
+    private void exportarRelatorio() {
+        JOptionPane.showMessageDialog(this,
+            "Funcionalidade em desenvolvimento.\n" +
+            "Em breve será possível exportar relatórios para Excel.",
+            "Exportar", JOptionPane.INFORMATION_MESSAGE);
+    }
+}
