@@ -2,8 +2,11 @@ package com.bilhetagem;
 
 import com.bilhetagem.dao.ConexaoBD;
 import com.bilhetagem.util.BancoUtil;
+import com.bilhetagem.view.TelaPrincipal;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import javax.swing.*;
 
 /**
  * Classe principal do Sistema de Bilhetagem de Vale Transporte.
@@ -37,7 +40,7 @@ public class Main {
      *   <li>Testa a conexão com o banco de dados</li>
      *   <li>Inicializa a estrutura do banco de dados</li>
      *   <li>Exibe informações do sistema</li>
-     *   <li>Prepara para iniciar a interface gráfica</li>
+     *   <li>Inicia a interface gráfica</li>
      * </ol>
      * </p>
      * 
@@ -56,6 +59,14 @@ public class Main {
             LOGGER.info("📁 Diretório: {}", System.getProperty("user.dir"));
             LOGGER.info("=".repeat(60));
             
+            // Configurar Look and Feel do sistema
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                LOGGER.info("🎨 Look and Feel: {}", UIManager.getSystemLookAndFeelClassName());
+            } catch (Exception e) {
+                LOGGER.warn("⚠️ Não foi possível configurar Look and Feel do sistema");
+            }
+            
             // Testar conexão com banco de dados
             LOGGER.info("🔌 Testando conexão com banco de dados...");
             boolean conexaoOk = ConexaoBD.testarConexao();
@@ -69,18 +80,45 @@ public class Main {
             } else {
                 LOGGER.warn("⚠️ Não foi possível estabelecer conexão com o banco de dados.");
                 LOGGER.warn("   Verifique se o diretório 'data/' tem permissões de escrita.");
+                
+                int resposta = JOptionPane.showConfirmDialog(null,
+                    "Não foi possível conectar ao banco de dados.\n" +
+                    "Deseja continuar mesmo assim?",
+                    "Erro de Conexão",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.ERROR_MESSAGE);
+                
+                if (resposta != JOptionPane.YES_OPTION) {
+                    System.exit(1);
+                }
             }
             
             LOGGER.info("=".repeat(60));
             LOGGER.info("📋 Sistema pronto para uso!");
             LOGGER.info("=".repeat(60));
             
-            // TODO: Próximo passo - Inicializar interface gráfica
-            // SwingUtilities.invokeLater(() -> new TelaPrincipal());
+            // Iniciar interface gráfica
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    TelaPrincipal tela = new TelaPrincipal();
+                    tela.setVisible(true);
+                    LOGGER.info("🖥️ Tela principal exibida com sucesso");
+                } catch (Exception e) {
+                    LOGGER.error("❌ Erro ao iniciar interface gráfica!", e);
+                    JOptionPane.showMessageDialog(null,
+                        "Erro ao iniciar interface gráfica:\n" + e.getMessage(),
+                        "Erro Fatal",
+                        JOptionPane.ERROR_MESSAGE);
+                    System.exit(1);
+                }
+            });
             
         } catch (Exception e) {
             LOGGER.error("❌ Erro fatal ao iniciar a aplicação!", e);
-            System.err.println("Erro ao iniciar o sistema. Verifique o log para mais detalhes.");
+            JOptionPane.showMessageDialog(null,
+                "Erro ao iniciar o sistema:\n" + e.getMessage(),
+                "Erro Fatal",
+                JOptionPane.ERROR_MESSAGE);
             System.exit(1);
         } finally {
             // Garantir que a conexão seja fechada ao finalizar
