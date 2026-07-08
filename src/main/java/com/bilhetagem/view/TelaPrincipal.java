@@ -672,9 +672,11 @@ public class TelaPrincipal extends JFrame {
      * Abre a tela de importação.
      */
     private void abrirImportacao() {
-        JOptionPane.showMessageDialog(this,
-            "Funcionalidade em desenvolvimento.",
-            "Importação", JOptionPane.INFORMATION_MESSAGE);
+        SwingUtilities.invokeLater(() -> {
+            TelaImportacao tela = new TelaImportacao(this);
+            tela.setVisible(true);
+            carregarDados(); // Recarregar dados após importação
+        });
     }
     
     /**
