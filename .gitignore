@@ -1,0 +1,32 @@
+# Arquivos Compilados
+*.class
+*.jar
+*.war
+*.ear
+
+# Diretórios de build
+/target/
+/build/
+/bin/
+/out/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Banco de dados
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+/logs/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
