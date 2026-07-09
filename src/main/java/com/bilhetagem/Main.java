@@ -2,7 +2,7 @@ package com.bilhetagem;
 
 import com.bilhetagem.dao.ConexaoBD;
 import com.bilhetagem.util.BancoUtil;
-import com.bilhetagem.view.TelaPrincipal;
+import com.bilhetagem.view.TelaLogin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -40,7 +40,7 @@ public class Main {
      *   <li>Testa a conexão com o banco de dados</li>
      *   <li>Inicializa a estrutura do banco de dados</li>
      *   <li>Exibe informações do sistema</li>
-     *   <li>Inicia a interface gráfica</li>
+     *   <li>Inicia a tela de login</li>
      * </ol>
      * </p>
      * 
@@ -97,16 +97,16 @@ public class Main {
             LOGGER.info("📋 Sistema pronto para uso!");
             LOGGER.info("=".repeat(60));
             
-            // Iniciar interface gráfica
+            // Iniciar com tela de login
             SwingUtilities.invokeLater(() -> {
                 try {
-                    TelaPrincipal tela = new TelaPrincipal();
-                    tela.setVisible(true);
-                    LOGGER.info("🖥️ Tela principal exibida com sucesso");
+                    TelaLogin telaLogin = new TelaLogin();
+                    telaLogin.setVisible(true);
+                    LOGGER.info("🔐 Tela de login exibida com sucesso");
                 } catch (Exception e) {
-                    LOGGER.error("❌ Erro ao iniciar interface gráfica!", e);
+                    LOGGER.error("❌ Erro ao iniciar tela de login!", e);
                     JOptionPane.showMessageDialog(null,
-                        "Erro ao iniciar interface gráfica:\n" + e.getMessage(),
+                        "Erro ao iniciar tela de login:\n" + e.getMessage(),
                         "Erro Fatal",
                         JOptionPane.ERROR_MESSAGE);
                     System.exit(1);

@@ -72,3 +72,42 @@ SELECT
     SUM(CASE WHEN tipo_solicitacao = 'renuncia' THEN 1 ELSE 0 END) as total_renuncias,
     SUM(CASE WHEN tipo_solicitacao = 'alteracao' THEN 1 ELSE 0 END) as total_alteracoes
 FROM solicitacoes;
+
+-- ------------------------------------------------------------
+-- Tabela: usuarios
+-- Gerencia os usuários do sistema
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    login TEXT UNIQUE NOT NULL,
+    senha TEXT NOT NULL,
+    nome TEXT NOT NULL,
+    email TEXT,
+    perfil TEXT CHECK(perfil IN ('ADMIN', 'GERENTE', 'OPERADOR', 'CONSULTOR')),
+    ativo INTEGER DEFAULT 1,
+    ultimo_acesso TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ------------------------------------------------------------
+-- Tabela: logs_auditoria
+-- Registra todas as ações dos usuários
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS logs_auditoria (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER,
+    acao TEXT NOT NULL,
+    entidade TEXT,
+    entidade_id INTEGER,
+    detalhes TEXT,
+    ip TEXT,
+    data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+);
+
+-- ------------------------------------------------------------
+-- Inserir usuário padrão (admin)
+-- ------------------------------------------------------------
+INSERT OR IGNORE INTO usuarios (login, senha, nome, email, perfil)
+VALUES ('admin', 'admin123', 'Administrador', 'admin@bilhetagem.com', 'ADMIN');
