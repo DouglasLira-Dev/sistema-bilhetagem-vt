@@ -3,6 +3,7 @@ package com.bilhetagem.view;
 import com.bilhetagem.dao.UsuarioDAO;
 import com.bilhetagem.dao.UsuarioDAOImpl;
 import com.bilhetagem.model.Usuario;
+import com.bilhetagem.service.AuditoriaService;
 import com.bilhetagem.util.SessaoUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -27,11 +28,13 @@ public class TelaLogin extends JFrame {
     private JButton btnLogin;
     private JButton btnCancelar;
     private UsuarioDAO usuarioDAO;
+    private AuditoriaService auditoriaService;
     
     private static final Color COR_PRIMARIA = new Color(52, 152, 219);
     
     public TelaLogin() {
         usuarioDAO = new UsuarioDAOImpl();
+        auditoriaService = new AuditoriaService();
         configurarJanela();
         criarComponentes();
         LOGGER.info("🔐 Tela de login inicializada");
@@ -91,6 +94,7 @@ public class TelaLogin extends JFrame {
         txtLogin = new JTextField(15);
         txtLogin.setFont(new Font("Arial", Font.PLAIN, 12));
         txtLogin.setPreferredSize(new Dimension(200, 30));
+        txtLogin.addActionListener(e -> realizarLogin());
         panelPrincipal.add(txtLogin, gbc);
         
         // Senha
@@ -177,6 +181,9 @@ public class TelaLogin extends JFrame {
                     
                     // Atualizar último acesso
                     usuarioDAO.atualizarUltimoAcesso(login);
+                    
+                    // Registrar login na auditoria
+                    auditoriaService.registrarLogin(usuario);
                     
                     LOGGER.info("✅ Login realizado: {}", login);
                     

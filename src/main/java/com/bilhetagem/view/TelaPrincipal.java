@@ -4,6 +4,8 @@ import com.bilhetagem.dao.SolicitacaoDAO;
 import com.bilhetagem.dao.SolicitacaoDAOImpl;
 import com.bilhetagem.model.Solicitacao;
 import com.bilhetagem.model.Solicitacao.TipoSolicitacao;
+import com.bilhetagem.service.AuditoriaService;
+import com.bilhetagem.util.SessaoUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -13,6 +15,7 @@ import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -48,8 +51,9 @@ public class TelaPrincipal extends JFrame {
     private JLabel lblTotalRenuncias;
     private JLabel lblTotalAlteracoes;
     
-    // DAO
+    // DAO e Serviços
     private SolicitacaoDAO dao;
+    private AuditoriaService auditoriaService;
     
     // Cores do tema
     private static final Color COR_PRIMARIA = new Color(52, 152, 219);
@@ -63,13 +67,35 @@ public class TelaPrincipal extends JFrame {
      */
     public TelaPrincipal() {
         dao = new SolicitacaoDAOImpl();
+        auditoriaService = new AuditoriaService();
         
         configurarJanela();
         criarMenuBar();
         criarPainelPrincipal();
         carregarDados();
         
+        // Verificar sessão
+        verificarSessao();
+        
         LOGGER.info("🖥️ Tela principal inicializada");
+    }
+    
+    /**
+     * Verifica se a sessão ainda é válida.
+     */
+    private void verificarSessao() {
+        if (SessaoUtil.sessaoExpirada()) {
+            JOptionPane.showMessageDialog(this,
+                "Sua sessão expirou. Faça login novamente.",
+                "Sessão Expirada",
+                JOptionPane.WARNING_MESSAGE);
+            SessaoUtil.encerrarSessao();
+            dispose();
+            SwingUtilities.invokeLater(() -> {
+                TelaLogin tela = new TelaLogin();
+                tela.setVisible(true);
+            });
+        }
     }
     
     /**
@@ -81,6 +107,17 @@ public class TelaPrincipal extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
+        
+        // Adicionar evento de fechamento para logout
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                if (SessaoUtil.isLogado()) {
+                    auditoriaService.registrarLogout(SessaoUtil.getUsuarioLogado());
+                    SessaoUtil.encerrarSessao();
+                }
+            }
+        });
         
         // Ícone da aplicação (opcional)
         try {
@@ -123,6 +160,18 @@ public class TelaPrincipal extends JFrame {
         menuRelatorios.add(itemRelatorioMensal);
         menuRelatorios.add(itemGraficos);
         
+        // Menu Usuário
+        JMenu menuUsuario = new JMenu("👤 Usuário");
+        JMenuItem itemInfo = new JMenuItem("Informações");
+        JMenuItem itemLogout = new JMenuItem("Logout");
+        
+        itemInfo.addActionListener(e -> mostrarInfoUsuario());
+        itemLogout.addActionListener(e -> fazerLogout());
+        
+        menuUsuario.add(itemInfo);
+        menuUsuario.addSeparator();
+        menuUsuario.add(itemLogout);
+        
         // Menu Ajuda
         JMenu menuAjuda = new JMenu("❓ Ajuda");
         JMenuItem itemSobre = new JMenuItem("Sobre");
@@ -138,6 +187,7 @@ public class TelaPrincipal extends JFrame {
         // Adicionar menus
         menuBar.add(menuArquivo);
         menuBar.add(menuRelatorios);
+        menuBar.add(menuUsuario);
         menuBar.add(menuAjuda);
         
         setJMenuBar(menuBar);
@@ -449,6 +499,11 @@ public class TelaPrincipal extends JFrame {
             atualizarTabela(lista);
             atualizarTotalizadores(lista);
             LOGGER.info("✅ Carregados {} registros", lista.size());
+            
+            // Registrar consulta na auditoria
+            auditoriaService.registrarConsulta("SOLICITACAO", null, 
+                "Consulta geral: " + lista.size() + " registros");
+            
         } catch (SQLException e) {
             LOGGER.error("❌ Erro ao carregar dados", e);
             JOptionPane.showMessageDialog(this,
@@ -586,7 +641,8 @@ public class TelaPrincipal extends JFrame {
     private void novaSolicitacao() {
         TelaCadastro tela = new TelaCadastro(this);
         tela.setVisible(true);
-        carregarDados(); // Recarregar após fechar
+        carregarDados();
+        auditoriaService.registrarCriacao("SOLICITACAO", null, "Nova solicitação criada");
     }
     
     /**
@@ -613,7 +669,9 @@ public class TelaPrincipal extends JFrame {
             if (optional.isPresent()) {
                 TelaCadastro tela = new TelaCadastro(this, optional.get());
                 tela.setVisible(true);
-                carregarDados(); // Recarregar após fechar
+                carregarDados();
+                auditoriaService.registrarAtualizacao("SOLICITACAO", id, 
+                    "Solicitação editada: " + optional.get().getNome());
             } else {
                 JOptionPane.showMessageDialog(this,
                     "Solicitação não encontrada.",
@@ -645,6 +703,8 @@ public class TelaPrincipal extends JFrame {
             if (confirm == JOptionPane.YES_OPTION) {
                 try {
                     if (dao.excluir(id)) {
+                        auditoriaService.registrarExclusao("SOLICITACAO", id, 
+                            "Solicitação excluída: " + nome);
                         JOptionPane.showMessageDialog(this,
                             "Solicitação excluída com sucesso!",
                             "Sucesso", JOptionPane.INFORMATION_MESSAGE);
@@ -675,7 +735,8 @@ public class TelaPrincipal extends JFrame {
         SwingUtilities.invokeLater(() -> {
             TelaImportacao tela = new TelaImportacao(this);
             tela.setVisible(true);
-            carregarDados(); // Recarregar dados após importação
+            carregarDados();
+            auditoriaService.registrarImportacao("SOLICITACAO", "Importação de dados do Excel");
         });
     }
     
@@ -686,6 +747,7 @@ public class TelaPrincipal extends JFrame {
         SwingUtilities.invokeLater(() -> {
             TelaExportacao tela = new TelaExportacao(this);
             tela.setVisible(true);
+            auditoriaService.registrarExportacao("SOLICITACAO", "Exportação de dados para Excel");
         });
     }
     
@@ -696,6 +758,7 @@ public class TelaPrincipal extends JFrame {
         SwingUtilities.invokeLater(() -> {
             TelaRelatorio tela = new TelaRelatorio();
             tela.setVisible(true);
+            auditoriaService.registrarConsulta("RELATORIO", null, "Relatório mensal acessado");
         });
     }
     
@@ -704,8 +767,49 @@ public class TelaPrincipal extends JFrame {
      */
     private void abrirGraficos() {
         abrirRelatorioMensal();
-        }
+    }
     
+    /**
+     * Mostra informações do usuário logado.
+     */
+    private void mostrarInfoUsuario() {
+        var usuario = SessaoUtil.getUsuarioLogado();
+        if (usuario != null) {
+            JOptionPane.showMessageDialog(this,
+                "👤 Informações do Usuário\n\n" +
+                "Nome: " + usuario.getNome() + "\n" +
+                "Login: " + usuario.getLogin() + "\n" +
+                "Email: " + (usuario.getEmail() != null ? usuario.getEmail() : "Não informado") + "\n" +
+                "Perfil: " + usuario.getPerfil().getDescricao() + "\n" +
+                "Último Acesso: " + (usuario.getUltimoAcesso() != null ? 
+                    usuario.getUltimoAcesso().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : 
+                    "Primeiro acesso"),
+                "Informações do Usuário",
+                JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+    
+    /**
+     * Realiza logout do sistema.
+     */
+    private void fazerLogout() {
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "Deseja realmente sair do sistema?",
+            "Confirmar Logout",
+            JOptionPane.YES_NO_OPTION);
+        
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (SessaoUtil.isLogado()) {
+                auditoriaService.registrarLogout(SessaoUtil.getUsuarioLogado());
+                SessaoUtil.encerrarSessao();
+            }
+            dispose();
+            SwingUtilities.invokeLater(() -> {
+                TelaLogin tela = new TelaLogin();
+                tela.setVisible(true);
+            });
+        }
+    }
     
     /**
      * Mostra a tela sobre.
@@ -730,7 +834,8 @@ public class TelaPrincipal extends JFrame {
             "➕ Novo: Cadastrar nova solicitação\n" +
             "✏️ Editar: Duplo clique na linha\n" +
             "🗑️ Excluir: Selecione e clique em excluir\n" +
-            "📊 Relatórios: Menu Relatórios",
+            "📊 Relatórios: Menu Relatórios\n" +
+            "👤 Usuário: Menu Usuário para informações e logout",
             "Manual", JOptionPane.INFORMATION_MESSAGE);
     }
     
@@ -744,6 +849,10 @@ public class TelaPrincipal extends JFrame {
             JOptionPane.YES_NO_OPTION);
         
         if (confirm == JOptionPane.YES_OPTION) {
+            if (SessaoUtil.isLogado()) {
+                auditoriaService.registrarLogout(SessaoUtil.getUsuarioLogado());
+                SessaoUtil.encerrarSessao();
+            }
             System.exit(0);
         }
     }
