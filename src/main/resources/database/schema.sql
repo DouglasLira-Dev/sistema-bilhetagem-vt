@@ -2,12 +2,11 @@
 -- SISTEMA DE BILHETAGEM - VALE TRANSPORTE
 -- Script de criação do banco de dados SQLite
 -- Versão: 1.0.0
--- Data: 2026-01-09
+-- Data: 2026-01-13
 -- ============================================================
 
 -- ------------------------------------------------------------
 -- Tabela: solicitacoes
--- Armazena todas as solicitações de vale transporte
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS solicitacoes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,11 +21,11 @@ CREATE TABLE IF NOT EXISTS solicitacoes (
     observacao TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP NULL  -- Soft delete
+    deleted_at TIMESTAMP NULL
 );
 
 -- ------------------------------------------------------------
--- Índices para otimização de consultas
+-- Índices
 -- ------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_matricula ON solicitacoes(matricula);
 CREATE INDEX IF NOT EXISTS idx_cpf ON solicitacoes(cpf);
@@ -37,7 +36,6 @@ CREATE INDEX IF NOT EXISTS idx_deleted_at ON solicitacoes(deleted_at);
 
 -- ------------------------------------------------------------
 -- Tabela: usuarios
--- Gerencia os usuários do sistema
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,7 +52,6 @@ CREATE TABLE IF NOT EXISTS usuarios (
 
 -- ------------------------------------------------------------
 -- Tabela: logs_auditoria
--- Registra todas as ações dos usuários
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS logs_auditoria (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,14 +65,13 @@ CREATE TABLE IF NOT EXISTS logs_auditoria (
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );
 
--- Índices para otimização
 CREATE INDEX IF NOT EXISTS idx_logs_usuario ON logs_auditoria(usuario_id);
 CREATE INDEX IF NOT EXISTS idx_logs_entidade ON logs_auditoria(entidade, entidade_id);
 CREATE INDEX IF NOT EXISTS idx_logs_data_hora ON logs_auditoria(data_hora);
 CREATE INDEX IF NOT EXISTS idx_logs_acao ON logs_auditoria(acao);
 
 -- ------------------------------------------------------------
--- Views para relatórios
+-- Views
 -- ------------------------------------------------------------
 CREATE VIEW IF NOT EXISTS vw_relatorio_mensal AS
 SELECT 
@@ -100,7 +96,5 @@ FROM solicitacoes
 WHERE deleted_at IS NULL;
 
 -- ------------------------------------------------------------
--- Inserir usuário padrão (admin)
--- ------------------------------------------------------------
-INSERT OR IGNORE INTO usuarios (login, senha, nome, email, perfil)
-VALUES ('admin', 'admin123', 'Administrador', 'admin@bilhetagem.com', 'ADMIN');
+-- NOTA: O usuário ADMIN deve ser criado via interface
+-- Use a Tela de Gerenciamento de Usuários para criar o primeiro admin

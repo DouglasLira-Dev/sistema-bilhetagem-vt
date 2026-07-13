@@ -190,6 +190,13 @@ public class TelaPrincipal extends JFrame {
         itemAuditoria.setEnabled(SessaoUtil.temPermissao(Permissao.VER_AUDITORIA));
         itemAuditoria.addActionListener(e -> abrirAuditoria());
         menuAuditoria.add(itemAuditoria);
+
+        // Menu Usuário (ADMIN)
+        JMenu menuUsuarios = new JMenu("👥 Usuários");
+        JMenuItem itemGerenciarUsuarios = new JMenuItem("Gerenciar Usuários");
+        itemGerenciarUsuarios.setEnabled(SessaoUtil.temPermissao(Permissao.GERENCIAR_USUARIOS));
+        itemGerenciarUsuarios.addActionListener(e -> abrirGerenciarUsuarios());
+        menuUsuarios.add(itemGerenciarUsuarios);
         
         // Menu Usuário
         JMenu menuUsuario = new JMenu("👤 Usuário");
@@ -220,6 +227,10 @@ public class TelaPrincipal extends JFrame {
         if (SessaoUtil.temPermissao(Permissao.VER_AUDITORIA)) {
             menuBar.add(menuAuditoria);
         }
+        if (SessaoUtil.temPermissao(Permissao.GERENCIAR_USUARIOS)) {
+            menuBar.add(menuUsuarios);
+        }
+        
         menuBar.add(menuUsuario);
         menuBar.add(menuAjuda);
         
@@ -799,6 +810,22 @@ public class TelaPrincipal extends JFrame {
         }
     }
     
+     /**
+     * Abre a tela de gerenciamento de usuários.
+     */
+    private void abrirGerenciarUsuarios() {
+        try {
+            SessaoUtil.verificarPermissao(Permissao.GERENCIAR_USUARIOS);
+            SwingUtilities.invokeLater(() -> {
+                TelaUsuarios tela = new TelaUsuarios(this);
+                tela.setVisible(true);
+            });
+        } catch (SecurityException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Acesso Negado", 
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     // ===== MÉTODOS DE UTILITÁRIO =====
     
     private void mostrarInfoUsuario() {
