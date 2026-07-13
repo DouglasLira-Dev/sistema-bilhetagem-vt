@@ -2,7 +2,7 @@
 -- SISTEMA DE BILHETAGEM - VALE TRANSPORTE
 -- Script de criação do banco de dados SQLite
 -- Versão: 1.0.0
--- Data: 2026-01-08
+-- Data: 2026-01-09
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS solicitacoes (
     tipo_solicitacao TEXT CHECK(tipo_solicitacao IN ('adesao', 'renuncia', 'alteracao')),
     observacao TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL  -- Soft delete
 );
 
 -- ------------------------------------------------------------
@@ -32,46 +33,7 @@ CREATE INDEX IF NOT EXISTS idx_cpf ON solicitacoes(cpf);
 CREATE INDEX IF NOT EXISTS idx_mes_referencia ON solicitacoes(mes_referencia);
 CREATE INDEX IF NOT EXISTS idx_tipo_solicitacao ON solicitacoes(tipo_solicitacao);
 CREATE INDEX IF NOT EXISTS idx_data_efetivacao ON solicitacoes(data_efetivacao);
-
--- ------------------------------------------------------------
--- Tabela: logs_operacao
--- Registra todas as operações realizadas no sistema
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS logs_operacao (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    operacao TEXT NOT NULL,
-    usuario TEXT DEFAULT 'sistema',
-    detalhes TEXT,
-    data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- ------------------------------------------------------------
--- View: vw_relatorio_mensal
--- Relatório consolidado por mês e tipo de solicitação
--- ------------------------------------------------------------
-CREATE VIEW IF NOT EXISTS vw_relatorio_mensal AS
-SELECT 
-    mes_referencia,
-    tipo_solicitacao,
-    COUNT(*) as quantidade_total,
-    SUM(quantidade_vale_tipo_a) as total_vales,
-    COUNT(DISTINCT matricula) as funcionarios_unicos
-FROM solicitacoes
-GROUP BY mes_referencia, tipo_solicitacao
-ORDER BY mes_referencia DESC, tipo_solicitacao;
-
--- ------------------------------------------------------------
--- View: vw_resumo_geral
--- Resumo geral do sistema
--- ------------------------------------------------------------
-CREATE VIEW IF NOT EXISTS vw_resumo_geral AS
-SELECT 
-    COUNT(*) as total_solicitacoes,
-    COUNT(DISTINCT matricula) as total_funcionarios,
-    SUM(CASE WHEN tipo_solicitacao = 'adesao' THEN 1 ELSE 0 END) as total_adesoes,
-    SUM(CASE WHEN tipo_solicitacao = 'renuncia' THEN 1 ELSE 0 END) as total_renuncias,
-    SUM(CASE WHEN tipo_solicitacao = 'alteracao' THEN 1 ELSE 0 END) as total_alteracoes
-FROM solicitacoes;
+CREATE INDEX IF NOT EXISTS idx_deleted_at ON solicitacoes(deleted_at);
 
 -- ------------------------------------------------------------
 -- Tabela: usuarios
@@ -96,7 +58,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS logs_auditoria (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    usuario_id INTEGER,
+    usuario_id INTEGER NOT NULL,
     acao TEXT NOT NULL,
     entidade TEXT,
     entidade_id INTEGER,
@@ -105,6 +67,37 @@ CREATE TABLE IF NOT EXISTS logs_auditoria (
     data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );
+
+-- Índices para otimização
+CREATE INDEX IF NOT EXISTS idx_logs_usuario ON logs_auditoria(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_logs_entidade ON logs_auditoria(entidade, entidade_id);
+CREATE INDEX IF NOT EXISTS idx_logs_data_hora ON logs_auditoria(data_hora);
+CREATE INDEX IF NOT EXISTS idx_logs_acao ON logs_auditoria(acao);
+
+-- ------------------------------------------------------------
+-- Views para relatórios
+-- ------------------------------------------------------------
+CREATE VIEW IF NOT EXISTS vw_relatorio_mensal AS
+SELECT 
+    mes_referencia,
+    tipo_solicitacao,
+    COUNT(*) as quantidade_total,
+    SUM(quantidade_vale_tipo_a) as total_vales,
+    COUNT(DISTINCT matricula) as funcionarios_unicos
+FROM solicitacoes
+WHERE deleted_at IS NULL
+GROUP BY mes_referencia, tipo_solicitacao
+ORDER BY mes_referencia DESC, tipo_solicitacao;
+
+CREATE VIEW IF NOT EXISTS vw_resumo_geral AS
+SELECT 
+    COUNT(*) as total_solicitacoes,
+    COUNT(DISTINCT matricula) as total_funcionarios,
+    SUM(CASE WHEN tipo_solicitacao = 'adesao' THEN 1 ELSE 0 END) as total_adesoes,
+    SUM(CASE WHEN tipo_solicitacao = 'renuncia' THEN 1 ELSE 0 END) as total_renuncias,
+    SUM(CASE WHEN tipo_solicitacao = 'alteracao' THEN 1 ELSE 0 END) as total_alteracoes
+FROM solicitacoes
+WHERE deleted_at IS NULL;
 
 -- ------------------------------------------------------------
 -- Inserir usuário padrão (admin)

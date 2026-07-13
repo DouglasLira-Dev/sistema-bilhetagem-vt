@@ -12,11 +12,13 @@ import java.util.Optional;
  * CRUD (Create, Read, Update, Delete) e consultas específicas
  * relacionadas à tabela de solicitações.</p>
  * 
- * @author [Seu Nome]
+ * @author Equipe de Desenvolvimento
  * @version 1.0.0
  * @since 2026-01-08
  */
 public interface SolicitacaoDAO {
+    
+    // ===== OPERAÇÕES CRUD =====
     
     /**
      * Insere uma nova solicitação no banco de dados.
@@ -28,7 +30,7 @@ public interface SolicitacaoDAO {
     Solicitacao salvar(Solicitacao solicitacao) throws SQLException;
     
     /**
-     * Busca uma solicitação pelo ID.
+     * Busca uma solicitação pelo ID (apenas não deletadas).
      * 
      * @param id ID da solicitação
      * @return Optional contendo a solicitação se encontrada
@@ -37,7 +39,7 @@ public interface SolicitacaoDAO {
     Optional<Solicitacao> buscarPorId(Long id) throws SQLException;
     
     /**
-     * Busca solicitações pela matrícula do funcionário.
+     * Busca solicitações pela matrícula do funcionário (apenas não deletadas).
      * 
      * @param matricula Matrícula do funcionário
      * @return Lista de solicitações encontradas
@@ -46,7 +48,7 @@ public interface SolicitacaoDAO {
     List<Solicitacao> buscarPorMatricula(String matricula) throws SQLException;
     
     /**
-     * Busca solicitações pelo CPF do funcionário.
+     * Busca solicitações pelo CPF do funcionário (apenas não deletadas).
      * 
      * @param cpf CPF do funcionário
      * @return Lista de solicitações encontradas
@@ -55,7 +57,7 @@ public interface SolicitacaoDAO {
     List<Solicitacao> buscarPorCpf(String cpf) throws SQLException;
     
     /**
-     * Busca solicitações pelo nome do funcionário (busca parcial).
+     * Busca solicitações pelo nome do funcionário (busca parcial, apenas não deletadas).
      * 
      * @param nome Nome ou parte do nome
      * @return Lista de solicitações encontradas
@@ -64,7 +66,7 @@ public interface SolicitacaoDAO {
     List<Solicitacao> buscarPorNome(String nome) throws SQLException;
     
     /**
-     * Busca solicitações por mês de referência.
+     * Busca solicitações por mês de referência (apenas não deletadas).
      * 
      * @param mesReferencia Mês de referência (MM/yyyy)
      * @return Lista de solicitações do mês
@@ -73,7 +75,7 @@ public interface SolicitacaoDAO {
     List<Solicitacao> buscarPorMesReferencia(String mesReferencia) throws SQLException;
     
     /**
-     * Busca solicitações por mês de referência e tipo.
+     * Busca solicitações por mês de referência e tipo (apenas não deletadas).
      * 
      * @param mesReferencia Mês de referência (MM/yyyy)
      * @param tipo Tipo de solicitação
@@ -84,7 +86,7 @@ public interface SolicitacaoDAO {
             throws SQLException;
     
     /**
-     * Busca solicitações por período de datas.
+     * Busca solicitações por período de datas (apenas não deletadas).
      * 
      * @param dataInicial Data inicial (inclusive)
      * @param dataFinal Data final (inclusive)
@@ -94,15 +96,31 @@ public interface SolicitacaoDAO {
     List<Solicitacao> buscarPorPeriodo(String dataInicial, String dataFinal) throws SQLException;
     
     /**
-     * Busca todas as solicitações ordenadas por data decrescente.
+     * Busca todas as solicitações não deletadas ordenadas por data decrescente.
      * 
-     * @return Lista com todas as solicitações
+     * @return Lista com todas as solicitações ativas
      * @throws SQLException Se houver erro na operação
      */
     List<Solicitacao> listarTodos() throws SQLException;
     
     /**
-     * Atualiza os dados de uma solicitação existente.
+     * Busca todas as solicitações, incluindo as deletadas.
+     * 
+     * @return Lista com todas as solicitações (ativas e deletadas)
+     * @throws SQLException Se houver erro na operação
+     */
+    List<Solicitacao> listarTodosIncluindoDeletados() throws SQLException;
+    
+    /**
+     * Busca apenas as solicitações deletadas (na lixeira).
+     * 
+     * @return Lista de solicitações deletadas
+     * @throws SQLException Se houver erro na operação
+     */
+    List<Solicitacao> listarDeletados() throws SQLException;
+    
+    /**
+     * Atualiza os dados de uma solicitação existente (apenas não deletadas).
      * 
      * @param solicitacao Objeto com dados atualizados
      * @return true se atualizou com sucesso
@@ -110,34 +128,39 @@ public interface SolicitacaoDAO {
      */
     boolean atualizar(Solicitacao solicitacao) throws SQLException;
     
+    // ===== SOFT DELETE =====
+    
     /**
-     * Exclui uma solicitação pelo ID.
+     * Soft delete - move a solicitação para a lixeira.
      * 
-     * @param id ID da solicitação a ser excluída
-     * @return true se excluiu com sucesso
+     * @param id ID da solicitação
+     * @return true se deletou com sucesso
      * @throws SQLException Se houver erro na operação
      */
     boolean excluir(Long id) throws SQLException;
     
     /**
-     * Verifica se uma solicitação existe pelo ID.
+     * Hard delete - remove permanentemente a solicitação do banco.
      * 
      * @param id ID da solicitação
-     * @return true se a solicitação existe
+     * @return true se excluiu permanentemente
      * @throws SQLException Se houver erro na operação
      */
-    boolean existePorId(Long id) throws SQLException;
+    boolean excluirPermanente(Long id) throws SQLException;
     
     /**
-     * Obtém o total de solicitações cadastradas.
+     * Restaura uma solicitação da lixeira.
      * 
-     * @return Número total de solicitações
+     * @param id ID da solicitação
+     * @return true se restaurou com sucesso
      * @throws SQLException Se houver erro na operação
      */
-    long contarTotal() throws SQLException;
+    boolean restaurar(Long id) throws SQLException;
+    
+    // ===== CONSULTAS AVANÇADAS =====
     
     /**
-     * Busca solicitações com filtros avançados.
+     * Busca solicitações com filtros avançados (apenas não deletadas).
      * 
      * @param matricula Matrícula (pode ser null)
      * @param cpf CPF (pode ser null)
@@ -150,4 +173,31 @@ public interface SolicitacaoDAO {
     List<Solicitacao> buscarComFiltros(String matricula, String cpf, String nome, 
                                       String mesReferencia, Solicitacao.TipoSolicitacao tipo) 
             throws SQLException;
+    
+    // ===== MÉTODOS DE UTILIDADE =====
+    
+    /**
+     * Verifica se uma solicitação existe pelo ID (apenas não deletadas).
+     * 
+     * @param id ID da solicitação
+     * @return true se a solicitação existe
+     * @throws SQLException Se houver erro na operação
+     */
+    boolean existePorId(Long id) throws SQLException;
+    
+    /**
+     * Obtém o total de solicitações não deletadas.
+     * 
+     * @return Número total de solicitações ativas
+     * @throws SQLException Se houver erro na operação
+     */
+    long contarTotal() throws SQLException;
+    
+    /**
+     * Obtém o total de solicitações deletadas (na lixeira).
+     * 
+     * @return Número total de solicitações deletadas
+     * @throws SQLException Se houver erro na operação
+     */
+    long contarDeletados() throws SQLException;
 }

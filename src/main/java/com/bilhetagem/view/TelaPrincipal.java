@@ -91,18 +91,12 @@ public class TelaPrincipal extends JFrame {
      * Atualiza a interface baseado nas permissões do usuário.
      */
     private void atualizarPermissoesUI() {
-        // Botões de ação
         btnNovo.setEnabled(SessaoUtil.temPermissao(Permissao.CADASTRAR_SOLICITACAO));
         btnEditar.setEnabled(SessaoUtil.temPermissao(Permissao.EDITAR_SOLICITACAO));
         btnExcluir.setEnabled(SessaoUtil.temPermissao(Permissao.EXCLUIR_SOLICITACAO));
         btnImportar.setEnabled(SessaoUtil.temPermissao(Permissao.IMPORTAR_DADOS));
         btnExportar.setEnabled(SessaoUtil.temPermissao(Permissao.EXPORTAR_DADOS));
         btnAtualizar.setEnabled(SessaoUtil.temPermissao(Permissao.CONSULTAR_SOLICITACAO));
-        
-        // Desabilitar clique duplo para editar se não tiver permissão
-        if (!SessaoUtil.temPermissao(Permissao.EDITAR_SOLICITACAO)) {
-            // O clique duplo será verificado no evento
-        }
     }
     
     /**
@@ -133,7 +127,6 @@ public class TelaPrincipal extends JFrame {
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
         
-        // Adicionar evento de fechamento para logout
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -144,7 +137,6 @@ public class TelaPrincipal extends JFrame {
             }
         });
         
-        // Ícone da aplicação (opcional)
         try {
             setIconImage(Toolkit.getDefaultToolkit().getImage(
                 getClass().getResource("/icons/icon.png")));
@@ -192,7 +184,7 @@ public class TelaPrincipal extends JFrame {
         menuRelatorios.add(itemRelatorioMensal);
         menuRelatorios.add(itemGraficos);
         
-        // Menu Auditoria (apenas ADMIN e GERENTE)
+        // Menu Auditoria
         JMenu menuAuditoria = new JMenu("🔍 Auditoria");
         JMenuItem itemAuditoria = new JMenuItem("Consultar Logs");
         itemAuditoria.setEnabled(SessaoUtil.temPermissao(Permissao.VER_AUDITORIA));
@@ -223,7 +215,6 @@ public class TelaPrincipal extends JFrame {
         menuAjuda.addSeparator();
         menuAjuda.add(itemSobre);
         
-        // Adicionar menus
         menuBar.add(menuArquivo);
         menuBar.add(menuRelatorios);
         if (SessaoUtil.temPermissao(Permissao.VER_AUDITORIA)) {
@@ -239,15 +230,12 @@ public class TelaPrincipal extends JFrame {
      * Cria o painel principal com todos os componentes.
      */
     private void criarPainelPrincipal() {
-        // Painel superior (busca e filtros)
         JPanel painelSuperior = criarPainelFiltros();
         add(painelSuperior, BorderLayout.NORTH);
         
-        // Painel central (tabela)
         JPanel painelCentral = criarPainelTabela();
         add(painelCentral, BorderLayout.CENTER);
         
-        // Painel inferior (totalizadores e ações)
         JPanel painelInferior = criarPainelRodape();
         add(painelInferior, BorderLayout.SOUTH);
     }
@@ -260,7 +248,6 @@ public class TelaPrincipal extends JFrame {
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         panel.setBackground(new Color(240, 244, 248));
         
-        // Painel de busca
         JPanel painelBusca = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         painelBusca.setOpaque(false);
         
@@ -291,7 +278,6 @@ public class TelaPrincipal extends JFrame {
         painelBusca.add(cbTipoFiltro);
         painelBusca.add(btnBuscar);
         
-        // Painel de filtros
         JPanel painelFiltros = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         painelFiltros.setOpaque(false);
         
@@ -322,7 +308,6 @@ public class TelaPrincipal extends JFrame {
         painelFiltros.add(cbTipoSolicitacao);
         painelFiltros.add(btnLimpar);
         
-        // Montar painel superior
         panel.add(painelBusca, BorderLayout.WEST);
         panel.add(painelFiltros, BorderLayout.EAST);
         
@@ -336,7 +321,6 @@ public class TelaPrincipal extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
         
-        // Criar modelo da tabela
         String[] colunas = {
             "ID", "Data", "Mês Ref.", "Matrícula", "CPF", "Nome",
             "Nº Cartão", "Qtd. Vales", "Tipo", "Observação"
@@ -345,7 +329,7 @@ public class TelaPrincipal extends JFrame {
         modeloTabela = new DefaultTableModel(colunas, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false; // Tabela não editável
+                return false;
             }
         };
         
@@ -358,7 +342,6 @@ public class TelaPrincipal extends JFrame {
         tabelaSolicitacoes.setSelectionBackground(new Color(187, 222, 251));
         tabelaSolicitacoes.setSelectionForeground(Color.BLACK);
         
-        // Configurar largura das colunas
         tabelaSolicitacoes.getColumnModel().getColumn(0).setPreferredWidth(50);
         tabelaSolicitacoes.getColumnModel().getColumn(1).setPreferredWidth(80);
         tabelaSolicitacoes.getColumnModel().getColumn(2).setPreferredWidth(70);
@@ -370,7 +353,6 @@ public class TelaPrincipal extends JFrame {
         tabelaSolicitacoes.getColumnModel().getColumn(8).setPreferredWidth(90);
         tabelaSolicitacoes.getColumnModel().getColumn(9).setPreferredWidth(150);
         
-        // Configurar renderização de cores por tipo
         tabelaSolicitacoes.setDefaultRenderer(Object.class, new javax.swing.table.DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value,
@@ -393,7 +375,6 @@ public class TelaPrincipal extends JFrame {
             }
         });
         
-        // Adicionar clique duplo para editar (com verificação de permissão)
         tabelaSolicitacoes.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -413,11 +394,9 @@ public class TelaPrincipal extends JFrame {
             }
         });
         
-        // Configurar sorter
         sorter = new TableRowSorter<>(modeloTabela);
         tabelaSolicitacoes.setRowSorter(sorter);
         
-        // Scroll pane
         JScrollPane scrollPane = new JScrollPane(tabelaSolicitacoes);
         scrollPane.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
         
@@ -434,7 +413,6 @@ public class TelaPrincipal extends JFrame {
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         panel.setBackground(new Color(240, 244, 248));
         
-        // Totalizadores
         JPanel painelTotalizadores = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 5));
         painelTotalizadores.setOpaque(false);
         
@@ -449,7 +427,6 @@ public class TelaPrincipal extends JFrame {
         painelTotalizadores.add(lblTotalRenuncias);
         painelTotalizadores.add(lblTotalAlteracoes);
         
-        // Botões de ação
         JPanel painelBotoes = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         painelBotoes.setOpaque(false);
         
@@ -480,9 +457,6 @@ public class TelaPrincipal extends JFrame {
         return panel;
     }
     
-    /**
-     * Cria um label estilizado para totalizadores.
-     */
     private JLabel criarLabelTotalizador(String label, String valor, Color cor) {
         JLabel lbl = new JLabel(label + " " + valor);
         lbl.setFont(new Font("Arial", Font.BOLD, 13));
@@ -490,9 +464,6 @@ public class TelaPrincipal extends JFrame {
         return lbl;
     }
     
-    /**
-     * Cria um botão estilizado.
-     */
     private JButton criarBotao(String texto, Color cor) {
         JButton btn = new JButton(texto);
         btn.setBackground(cor);
@@ -516,9 +487,6 @@ public class TelaPrincipal extends JFrame {
         return btn;
     }
     
-    /**
-     * Carrega os meses disponíveis para o filtro.
-     */
     private void carregarMeses() {
         try {
             List<Solicitacao> lista = dao.listarTodos();
@@ -542,9 +510,6 @@ public class TelaPrincipal extends JFrame {
         }
     }
     
-    /**
-     * Carrega os dados na tabela.
-     */
     private void carregarDados() {
         try {
             LOGGER.info("🔄 Carregando dados...");
@@ -566,9 +531,6 @@ public class TelaPrincipal extends JFrame {
         }
     }
     
-    /**
-     * Atualiza a tabela com uma lista de solicitações.
-     */
     private void atualizarTabela(List<Solicitacao> lista) {
         modeloTabela.setRowCount(0);
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -590,9 +552,6 @@ public class TelaPrincipal extends JFrame {
         }
     }
     
-    /**
-     * Atualiza os totalizadores.
-     */
     private void atualizarTotalizadores(List<Solicitacao> lista) {
         long total = lista.size();
         long adesoes = lista.stream()
@@ -611,9 +570,6 @@ public class TelaPrincipal extends JFrame {
         lblTotalAlteracoes.setText("🔄 Alterações: " + alteracoes);
     }
     
-    /**
-     * Aplica os filtros na tabela.
-     */
     private void aplicarFiltros() {
         String busca = txtBusca.getText().trim();
         String tipoFiltro = (String) cbTipoFiltro.getSelectedItem();
@@ -667,9 +623,6 @@ public class TelaPrincipal extends JFrame {
         sorter.setRowFilter(filter);
     }
     
-    /**
-     * Limpa todos os filtros.
-     */
     private void limparFiltros() {
         txtBusca.setText("");
         cbTipoFiltro.setSelectedIndex(0);
@@ -678,9 +631,8 @@ public class TelaPrincipal extends JFrame {
         aplicarFiltros();
     }
     
-    /**
-     * Abre a tela de nova solicitação com verificação de permissão.
-     */
+    // ===== MÉTODOS DE AÇÃO =====
+    
     private void novaSolicitacao() {
         try {
             SessaoUtil.verificarPermissao(Permissao.CADASTRAR_SOLICITACAO);
@@ -694,9 +646,6 @@ public class TelaPrincipal extends JFrame {
         }
     }
     
-    /**
-     * Abre a tela de edição da solicitação selecionada com verificação de permissão.
-     */
     private void editarSolicitacaoSelecionada() {
         try {
             SessaoUtil.verificarPermissao(Permissao.EDITAR_SOLICITACAO);
@@ -715,9 +664,6 @@ public class TelaPrincipal extends JFrame {
         }
     }
     
-    /**
-     * Abre a tela de edição para uma solicitação específica.
-     */
     private void editarSolicitacao(Long id) {
         try {
             SessaoUtil.verificarPermissao(Permissao.EDITAR_SOLICITACAO);
@@ -745,7 +691,7 @@ public class TelaPrincipal extends JFrame {
     }
     
     /**
-     * Exclui a solicitação selecionada com verificação de permissão.
+     * Exclui a solicitação selecionada (soft delete).
      */
     private void excluirSolicitacaoSelecionada() {
         try {
@@ -756,7 +702,8 @@ public class TelaPrincipal extends JFrame {
                 String nome = (String) modeloTabela.getValueAt(row, 5);
                 
                 int confirm = JOptionPane.showConfirmDialog(this,
-                    "Deseja realmente excluir a solicitação de\n" + nome + " (ID: " + id + ")?",
+                    "Deseja realmente excluir a solicitação de\n" + nome + " (ID: " + id + ")?\n\n" +
+                    "A solicitação será movida para a lixeira e poderá ser restaurada.",
                     "Confirmar Exclusão",
                     JOptionPane.YES_NO_OPTION,
                     JOptionPane.WARNING_MESSAGE);
@@ -764,9 +711,10 @@ public class TelaPrincipal extends JFrame {
                 if (confirm == JOptionPane.YES_OPTION) {
                     if (dao.excluir(id)) {
                         auditoriaService.registrarExclusao("SOLICITACAO", id, 
-                            "Solicitação excluída: " + nome);
+                            "Solicitação movida para lixeira: " + nome);
                         JOptionPane.showMessageDialog(this,
-                            "Solicitação excluída com sucesso!",
+                            "Solicitação movida para lixeira!\n" +
+                            "Use 'Restaurar' para recuperar.",
                             "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                         carregarDados();
                     } else {
@@ -791,9 +739,6 @@ public class TelaPrincipal extends JFrame {
         }
     }
     
-    /**
-     * Abre a tela de importação com verificação de permissão.
-     */
     private void abrirImportacao() {
         try {
             SessaoUtil.verificarPermissao(Permissao.IMPORTAR_DADOS);
@@ -809,9 +754,6 @@ public class TelaPrincipal extends JFrame {
         }
     }
     
-    /**
-     * Abre a tela de exportação com verificação de permissão.
-     */
     private void abrirExportacao() {
         try {
             SessaoUtil.verificarPermissao(Permissao.EXPORTAR_DADOS);
@@ -826,9 +768,6 @@ public class TelaPrincipal extends JFrame {
         }
     }
     
-    /**
-     * Abre o relatório mensal com verificação de permissão.
-     */
     private void abrirRelatorioMensal() {
         try {
             SessaoUtil.verificarPermissao(Permissao.GERAR_RELATORIOS);
@@ -843,16 +782,10 @@ public class TelaPrincipal extends JFrame {
         }
     }
     
-    /**
-     * Abre os gráficos.
-     */
     private void abrirGraficos() {
         abrirRelatorioMensal();
     }
     
-    /**
-     * Abre a tela de auditoria com verificação de permissão.
-     */
     private void abrirAuditoria() {
         try {
             SessaoUtil.verificarPermissao(Permissao.VER_AUDITORIA);
@@ -866,9 +799,8 @@ public class TelaPrincipal extends JFrame {
         }
     }
     
-    /**
-     * Mostra informações do usuário logado com permissões.
-     */
+    // ===== MÉTODOS DE UTILITÁRIO =====
+    
     private void mostrarInfoUsuario() {
         var usuario = SessaoUtil.getUsuarioLogado();
         if (usuario != null) {
@@ -890,9 +822,6 @@ public class TelaPrincipal extends JFrame {
         }
     }
     
-    /**
-     * Realiza logout do sistema.
-     */
     private void fazerLogout() {
         int confirm = JOptionPane.showConfirmDialog(this,
             "Deseja realmente sair do sistema?",
@@ -912,9 +841,6 @@ public class TelaPrincipal extends JFrame {
         }
     }
     
-    /**
-     * Mostra a tela sobre.
-     */
     private void mostrarSobre() {
         JOptionPane.showMessageDialog(this,
             "Sistema de Bilhetagem - Vale Transporte\n" +
@@ -924,9 +850,6 @@ public class TelaPrincipal extends JFrame {
             "Sobre", JOptionPane.INFORMATION_MESSAGE);
     }
     
-    /**
-     * Mostra o manual do usuário.
-     */
     private void mostrarManual() {
         JOptionPane.showMessageDialog(this,
             "📖 Manual do Sistema\n\n" +
@@ -941,9 +864,6 @@ public class TelaPrincipal extends JFrame {
             "Manual", JOptionPane.INFORMATION_MESSAGE);
     }
     
-    /**
-     * Sai da aplicação.
-     */
     private void sairAplicacao() {
         int confirm = JOptionPane.showConfirmDialog(this,
             "Deseja realmente sair?",

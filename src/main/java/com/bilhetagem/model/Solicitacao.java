@@ -37,6 +37,7 @@ public class Solicitacao {
     private String observacao;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LocalDateTime deletedAt;  // Soft delete
     
     // ===== CONSTRUTORES =====
     
@@ -134,11 +135,6 @@ public class Solicitacao {
     
     // ===== GETTERS E SETTERS =====
     
-    /**
-     * Obtém o ID da solicitação.
-     * 
-     * @return Long ID da solicitação (null se ainda não persistido)
-     */
     public Long getId() {
         return id;
     }
@@ -235,6 +231,23 @@ public class Solicitacao {
         this.updatedAt = updatedAt;
     }
     
+    public LocalDateTime getDeletedAt() {
+        return deletedAt;
+    }
+    
+    public void setDeletedAt(LocalDateTime deletedAt) {
+        this.deletedAt = deletedAt;
+    }
+    
+    /**
+     * Verifica se a solicitação foi deletada (soft delete).
+     * 
+     * @return true se foi deletada
+     */
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+    
     // ===== MÉTODOS UTILITÁRIOS =====
     
     /**
@@ -274,7 +287,7 @@ public class Solicitacao {
     
     @Override
     public String toString() {
-        return String.format("Solicitação [ID=%d, Matrícula=%s, Nome=%s, Tipo=%s]",
-                            id, matricula, nome, tipoSolicitacao);
+        return String.format("Solicitação [ID=%d, Matrícula=%s, Nome=%s, Tipo=%s, Deletada=%s]",
+                            id, matricula, nome, tipoSolicitacao, isDeleted());
     }
 }

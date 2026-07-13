@@ -13,13 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Implementação concreta do DAO para solicitações usando SQLite.
- * 
- * <p>Esta classe implementa todas as operações definidas na interface
- * {@link SolicitacaoDAO} utilizando JDBC para comunicação com o SQLite.</p>
- * 
- * <p>Utiliza PreparedStatement para prevenir SQL Injection e garantir
- * segurança nas operações com o banco de dados.</p>
+ * Implementação concreta do DAO para solicitações usando SQLite com Soft Delete.
  * 
  * @author [Seu Nome]
  * @version 1.0.0
@@ -27,7 +21,6 @@ import java.util.Optional;
  */
 public class SolicitacaoDAOImpl implements SolicitacaoDAO {
     
-    /** Logger para registro de operações */
     private static final Logger LOGGER = LogManager.getLogger(SolicitacaoDAOImpl.class);
     
     // ===== CONSTANTES SQL =====
@@ -38,30 +31,40 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """;
     
-    private static final String SQL_SELECT_BY_ID = "SELECT * FROM solicitacoes WHERE id = ?";
+    private static final String SQL_SELECT_BY_ID = 
+        "SELECT * FROM solicitacoes WHERE id = ? AND deleted_at IS NULL";
+    
+    private static final String SQL_SELECT_BY_ID_INCLUINDO_DELETADO = 
+        "SELECT * FROM solicitacoes WHERE id = ?";
+    
+    private static final String SQL_SELECT_ALL = 
+        "SELECT * FROM solicitacoes WHERE deleted_at IS NULL ORDER BY data_efetivacao DESC, id DESC";
+    
+    private static final String SQL_SELECT_ALL_INCLUINDO_DELETADOS = 
+        "SELECT * FROM solicitacoes ORDER BY data_efetivacao DESC, id DESC";
+    
+    private static final String SQL_SELECT_DELETADOS = 
+        "SELECT * FROM solicitacoes WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC";
     
     private static final String SQL_SELECT_BY_MATRICULA = 
-        "SELECT * FROM solicitacoes WHERE matricula = ? ORDER BY data_efetivacao DESC";
+        "SELECT * FROM solicitacoes WHERE matricula = ? AND deleted_at IS NULL ORDER BY data_efetivacao DESC";
     
     private static final String SQL_SELECT_BY_CPF = 
-        "SELECT * FROM solicitacoes WHERE cpf = ? ORDER BY data_efetivacao DESC";
+        "SELECT * FROM solicitacoes WHERE cpf = ? AND deleted_at IS NULL ORDER BY data_efetivacao DESC";
     
     private static final String SQL_SELECT_BY_NOME = 
-        "SELECT * FROM solicitacoes WHERE nome LIKE ? ORDER BY data_efetivacao DESC";
+        "SELECT * FROM solicitacoes WHERE nome LIKE ? AND deleted_at IS NULL ORDER BY data_efetivacao DESC";
     
     private static final String SQL_SELECT_BY_MES = 
-        "SELECT * FROM solicitacoes WHERE mes_referencia = ? ORDER BY data_efetivacao DESC";
+        "SELECT * FROM solicitacoes WHERE mes_referencia = ? AND deleted_at IS NULL ORDER BY data_efetivacao DESC";
     
     private static final String SQL_SELECT_BY_MES_TIPO = 
-        "SELECT * FROM solicitacoes WHERE mes_referencia = ? AND tipo_solicitacao = ? " +
+        "SELECT * FROM solicitacoes WHERE mes_referencia = ? AND tipo_solicitacao = ? AND deleted_at IS NULL " +
         "ORDER BY data_efetivacao DESC";
     
     private static final String SQL_SELECT_BY_PERIODO = 
-        "SELECT * FROM solicitacoes WHERE data_efetivacao BETWEEN ? AND ? " +
+        "SELECT * FROM solicitacoes WHERE data_efetivacao BETWEEN ? AND ? AND deleted_at IS NULL " +
         "ORDER BY data_efetivacao DESC";
-    
-    private static final String SQL_SELECT_ALL = 
-        "SELECT * FROM solicitacoes ORDER BY data_efetivacao DESC, id DESC";
     
     private static final String SQL_UPDATE = """
         UPDATE solicitacoes SET
@@ -75,18 +78,31 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
             tipo_solicitacao = ?,
             observacao = ?,
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
+        WHERE id = ? AND deleted_at IS NULL
     """;
     
-    private static final String SQL_DELETE = "DELETE FROM solicitacoes WHERE id = ?";
+    private static final String SQL_DELETE = 
+        "UPDATE solicitacoes SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?";
     
-    private static final String SQL_EXISTS_BY_ID = "SELECT 1 FROM solicitacoes WHERE id = ?";
+    private static final String SQL_DELETE_PERMANENTE = 
+        "DELETE FROM solicitacoes WHERE id = ?";
     
-    private static final String SQL_COUNT = "SELECT COUNT(*) FROM solicitacoes";
+    private static final String SQL_RESTAURAR = 
+        "UPDATE solicitacoes SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+    
+    private static final String SQL_EXISTS_BY_ID = 
+        "SELECT 1 FROM solicitacoes WHERE id = ? AND deleted_at IS NULL";
+    
+    private static final String SQL_COUNT = 
+        "SELECT COUNT(*) FROM solicitacoes WHERE deleted_at IS NULL";
+    
+    private static final String SQL_COUNT_DELETADOS = 
+        "SELECT COUNT(*) FROM solicitacoes WHERE deleted_at IS NOT NULL";
     
     private static final String SQL_SELECT_FILTRADO = """
         SELECT * FROM solicitacoes 
-        WHERE (matricula = ? OR ? IS NULL OR ? = '')
+        WHERE deleted_at IS NULL
+          AND (matricula = ? OR ? IS NULL OR ? = '')
           AND (cpf = ? OR ? IS NULL OR ? = '')
           AND (nome LIKE ? OR ? IS NULL OR ? = '')
           AND (mes_referencia = ? OR ? IS NULL OR ? = '')
@@ -96,19 +112,11 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
     
     // ===== MÉTODOS PRIVADOS =====
     
-    /**
-     * Mapeia um ResultSet para um objeto Solicitacao.
-     * 
-     * @param rs ResultSet com os dados
-     * @return Objeto Solicitacao populado
-     * @throws SQLException Se houver erro na leitura
-     */
     private Solicitacao mapearResultSet(ResultSet rs) throws SQLException {
         Solicitacao solicitacao = new Solicitacao();
         
         solicitacao.setId(rs.getLong("id"));
         
-        // Data de efetivação
         String dataStr = rs.getString("data_efetivacao");
         if (dataStr != null) {
             solicitacao.setDataEfetivacao(LocalDate.parse(dataStr));
@@ -121,7 +129,6 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
         solicitacao.setNumeroCartao(rs.getString("numero_cartao"));
         solicitacao.setQuantidadeValeTipoA(rs.getInt("quantidade_vale_tipo_a"));
         
-        // Tipo de solicitação
         String tipoStr = rs.getString("tipo_solicitacao");
         if (tipoStr != null) {
             solicitacao.setTipoSolicitacao(TipoSolicitacao.fromValor(tipoStr));
@@ -129,7 +136,6 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
         
         solicitacao.setObservacao(rs.getString("observacao"));
         
-        // Datas de auditoria
         String createdAtStr = rs.getString("created_at");
         if (createdAtStr != null) {
             solicitacao.setCreatedAt(LocalDateTime.parse(createdAtStr.replace(' ', 'T')));
@@ -140,16 +146,14 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
             solicitacao.setUpdatedAt(LocalDateTime.parse(updatedAtStr.replace(' ', 'T')));
         }
         
+        String deletedAtStr = rs.getString("deleted_at");
+        if (deletedAtStr != null) {
+            solicitacao.setDeletedAt(LocalDateTime.parse(deletedAtStr.replace(' ', 'T')));
+        }
+        
         return solicitacao;
     }
     
-    /**
-     * Prepara um PreparedStatement para INSERT ou UPDATE.
-     * 
-     * @param stmt PreparedStatement a ser preparado
-     * @param s Solicitacao com os dados
-     * @throws SQLException Se houver erro na preparação
-     */
     private void preencherStatement(PreparedStatement stmt, Solicitacao s) throws SQLException {
         stmt.setString(1, s.getDataEfetivacao().toString());
         stmt.setString(2, s.getMesReferencia());
@@ -162,7 +166,17 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
         stmt.setString(9, s.getObservacao());
     }
     
-    // ===== IMPLEMENTAÇÃO DOS MÉTODOS DA INTERFACE =====
+    private List<Solicitacao> executarConsulta(PreparedStatement stmt) throws SQLException {
+        List<Solicitacao> lista = new ArrayList<>();
+        try (ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                lista.add(mapearResultSet(rs));
+            }
+        }
+        return lista;
+    }
+    
+    // ===== IMPLEMENTAÇÃO DOS MÉTODOS =====
     
     @Override
     public Solicitacao salvar(Solicitacao solicitacao) throws SQLException {
@@ -172,32 +186,23 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
             throw new IllegalArgumentException("Solicitação inválida para persistência");
         }
         
-        String sql = SQL_INSERT;
-        
         try (Connection conn = ConexaoBD.getInstance();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement stmt = conn.prepareStatement(SQL_INSERT, Statement.RETURN_GENERATED_KEYS)) {
             
             preencherStatement(stmt, solicitacao);
-            
             int affectedRows = stmt.executeUpdate();
             
             if (affectedRows == 0) {
-                throw new SQLException("Falha ao salvar solicitação, nenhuma linha afetada.");
+                throw new SQLException("Falha ao salvar solicitação");
             }
             
-            // Recuperar o ID gerado
             try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
                     solicitacao.setId(generatedKeys.getLong(1));
-                    LOGGER.info("✅ Solicitação salva com ID: {}", solicitacao.getId());
-                } else {
-                    throw new SQLException("Falha ao recuperar ID gerado.");
                 }
             }
             
-            // Registrar operação no log
-            registrarLog("INSERT", solicitacao.getId(), "Solicitação criada");
-            
+            LOGGER.info("✅ Solicitação salva com ID: {}", solicitacao.getId());
             return solicitacao;
         }
     }
@@ -208,57 +213,91 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
         
         try (Connection conn = ConexaoBD.getInstance();
              PreparedStatement stmt = conn.prepareStatement(SQL_SELECT_BY_ID)) {
-            
             stmt.setLong(1, id);
-            
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    Solicitacao solicitacao = mapearResultSet(rs);
-                    LOGGER.debug("✅ Solicitação encontrada: {}", solicitacao);
-                    return Optional.of(solicitacao);
+                    return Optional.of(mapearResultSet(rs));
                 }
             }
         }
-        
-        LOGGER.debug("❌ Solicitação não encontrada para ID: {}", id);
         return Optional.empty();
+    }
+    
+    @Override
+    public List<Solicitacao> listarTodos() throws SQLException {
+        LOGGER.debug("Listando todas as solicitações (não deletadas)");
+        try (Connection conn = ConexaoBD.getInstance();
+             PreparedStatement stmt = conn.prepareStatement(SQL_SELECT_ALL)) {
+            return executarConsulta(stmt);
+        }
+    }
+    
+    @Override
+    public List<Solicitacao> listarTodosIncluindoDeletados() throws SQLException {
+        LOGGER.debug("Listando todas as solicitações (incluindo deletadas)");
+        try (Connection conn = ConexaoBD.getInstance();
+             PreparedStatement stmt = conn.prepareStatement(SQL_SELECT_ALL_INCLUINDO_DELETADOS)) {
+            return executarConsulta(stmt);
+        }
+    }
+    
+    @Override
+    public List<Solicitacao> listarDeletados() throws SQLException {
+        LOGGER.debug("Listando solicitações deletadas");
+        try (Connection conn = ConexaoBD.getInstance();
+             PreparedStatement stmt = conn.prepareStatement(SQL_SELECT_DELETADOS)) {
+            return executarConsulta(stmt);
+        }
     }
     
     @Override
     public List<Solicitacao> buscarPorMatricula(String matricula) throws SQLException {
         LOGGER.debug("Buscando solicitações por matrícula: {}", matricula);
-        return buscarPorString(SQL_SELECT_BY_MATRICULA, matricula);
+        try (Connection conn = ConexaoBD.getInstance();
+             PreparedStatement stmt = conn.prepareStatement(SQL_SELECT_BY_MATRICULA)) {
+            stmt.setString(1, matricula);
+            return executarConsulta(stmt);
+        }
     }
     
     @Override
     public List<Solicitacao> buscarPorCpf(String cpf) throws SQLException {
         LOGGER.debug("Buscando solicitações por CPF: {}", cpf);
-        return buscarPorString(SQL_SELECT_BY_CPF, cpf);
+        try (Connection conn = ConexaoBD.getInstance();
+             PreparedStatement stmt = conn.prepareStatement(SQL_SELECT_BY_CPF)) {
+            stmt.setString(1, cpf);
+            return executarConsulta(stmt);
+        }
     }
     
     @Override
     public List<Solicitacao> buscarPorNome(String nome) throws SQLException {
         LOGGER.debug("Buscando solicitações por nome: {}", nome);
-        return buscarPorString(SQL_SELECT_BY_NOME, "%" + nome + "%");
+        try (Connection conn = ConexaoBD.getInstance();
+             PreparedStatement stmt = conn.prepareStatement(SQL_SELECT_BY_NOME)) {
+            stmt.setString(1, "%" + nome + "%");
+            return executarConsulta(stmt);
+        }
     }
     
     @Override
     public List<Solicitacao> buscarPorMesReferencia(String mesReferencia) throws SQLException {
         LOGGER.debug("Buscando solicitações por mês: {}", mesReferencia);
-        return buscarPorString(SQL_SELECT_BY_MES, mesReferencia);
+        try (Connection conn = ConexaoBD.getInstance();
+             PreparedStatement stmt = conn.prepareStatement(SQL_SELECT_BY_MES)) {
+            stmt.setString(1, mesReferencia);
+            return executarConsulta(stmt);
+        }
     }
     
     @Override
     public List<Solicitacao> buscarPorMesETipo(String mesReferencia, TipoSolicitacao tipo) 
             throws SQLException {
         LOGGER.debug("Buscando solicitações por mês {} e tipo {}", mesReferencia, tipo);
-        
         try (Connection conn = ConexaoBD.getInstance();
              PreparedStatement stmt = conn.prepareStatement(SQL_SELECT_BY_MES_TIPO)) {
-            
             stmt.setString(1, mesReferencia);
             stmt.setString(2, tipo.getValor());
-            
             return executarConsulta(stmt);
         }
     }
@@ -267,24 +306,10 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
     public List<Solicitacao> buscarPorPeriodo(String dataInicial, String dataFinal) 
             throws SQLException {
         LOGGER.debug("Buscando solicitações no período: {} a {}", dataInicial, dataFinal);
-        
         try (Connection conn = ConexaoBD.getInstance();
              PreparedStatement stmt = conn.prepareStatement(SQL_SELECT_BY_PERIODO)) {
-            
             stmt.setString(1, dataInicial);
             stmt.setString(2, dataFinal);
-            
-            return executarConsulta(stmt);
-        }
-    }
-    
-    @Override
-    public List<Solicitacao> listarTodos() throws SQLException {
-        LOGGER.debug("Listando todas as solicitações");
-        
-        try (Connection conn = ConexaoBD.getInstance();
-             PreparedStatement stmt = conn.prepareStatement(SQL_SELECT_ALL)) {
-            
             return executarConsulta(stmt);
         }
     }
@@ -297,10 +322,6 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
             throw new IllegalArgumentException("ID da solicitação não pode ser null");
         }
         
-        if (!solicitacao.isValid()) {
-            throw new IllegalArgumentException("Solicitação inválida para atualização");
-        }
-        
         try (Connection conn = ConexaoBD.getInstance();
              PreparedStatement stmt = conn.prepareStatement(SQL_UPDATE)) {
             
@@ -308,36 +329,55 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
             stmt.setLong(10, solicitacao.getId());
             
             int affectedRows = stmt.executeUpdate();
-            
             if (affectedRows > 0) {
                 LOGGER.info("✅ Solicitação {} atualizada com sucesso", solicitacao.getId());
-                registrarLog("UPDATE", solicitacao.getId(), "Solicitação atualizada");
                 return true;
             }
-            
-            LOGGER.warn("⚠️ Nenhuma solicitação atualizada para ID: {}", solicitacao.getId());
             return false;
         }
     }
     
     @Override
     public boolean excluir(Long id) throws SQLException {
-        LOGGER.debug("Excluindo solicitação ID: {}", id);
-        
+        LOGGER.debug("Soft delete da solicitação ID: {}", id);
         try (Connection conn = ConexaoBD.getInstance();
              PreparedStatement stmt = conn.prepareStatement(SQL_DELETE)) {
-            
             stmt.setLong(1, id);
-            
             int affectedRows = stmt.executeUpdate();
-            
             if (affectedRows > 0) {
-                LOGGER.info("🗑️ Solicitação {} excluída com sucesso", id);
-                registrarLog("DELETE", id, "Solicitação excluída");
+                LOGGER.info("🗑️ Solicitação {} movida para lixeira", id);
                 return true;
             }
-            
-            LOGGER.warn("⚠️ Nenhuma solicitação excluída para ID: {}", id);
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean excluirPermanente(Long id) throws SQLException {
+        LOGGER.debug("Exclusão permanente da solicitação ID: {}", id);
+        try (Connection conn = ConexaoBD.getInstance();
+             PreparedStatement stmt = conn.prepareStatement(SQL_DELETE_PERMANENTE)) {
+            stmt.setLong(1, id);
+            int affectedRows = stmt.executeUpdate();
+            if (affectedRows > 0) {
+                LOGGER.info("🗑️ Solicitação {} excluída permanentemente", id);
+                return true;
+            }
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean restaurar(Long id) throws SQLException {
+        LOGGER.debug("Restaurando solicitação ID: {}", id);
+        try (Connection conn = ConexaoBD.getInstance();
+             PreparedStatement stmt = conn.prepareStatement(SQL_RESTAURAR)) {
+            stmt.setLong(1, id);
+            int affectedRows = stmt.executeUpdate();
+            if (affectedRows > 0) {
+                LOGGER.info("♻️ Solicitação {} restaurada com sucesso", id);
+                return true;
+            }
             return false;
         }
     }
@@ -345,12 +385,9 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
     @Override
     public boolean existePorId(Long id) throws SQLException {
         LOGGER.debug("Verificando existência da solicitação ID: {}", id);
-        
         try (Connection conn = ConexaoBD.getInstance();
              PreparedStatement stmt = conn.prepareStatement(SQL_EXISTS_BY_ID)) {
-            
             stmt.setLong(1, id);
-            
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next();
             }
@@ -359,17 +396,21 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
     
     @Override
     public long contarTotal() throws SQLException {
-        LOGGER.debug("Contando total de solicitações");
-        
+        LOGGER.debug("Contando total de solicitações não deletadas");
         try (Connection conn = ConexaoBD.getInstance();
              PreparedStatement stmt = conn.prepareStatement(SQL_COUNT);
              ResultSet rs = stmt.executeQuery()) {
-            
-            if (rs.next()) {
-                return rs.getLong(1);
-            }
-            
-            return 0;
+            return rs.next() ? rs.getLong(1) : 0;
+        }
+    }
+    
+    @Override
+    public long contarDeletados() throws SQLException {
+        LOGGER.debug("Contando solicitações deletadas");
+        try (Connection conn = ConexaoBD.getInstance();
+             PreparedStatement stmt = conn.prepareStatement(SQL_COUNT_DELETADOS);
+             ResultSet rs = stmt.executeQuery()) {
+            return rs.next() ? rs.getLong(1) : 0;
         }
     }
     
@@ -377,34 +418,27 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
     public List<Solicitacao> buscarComFiltros(String matricula, String cpf, String nome,
                                              String mesReferencia, TipoSolicitacao tipo) 
             throws SQLException {
-        LOGGER.debug("Buscando com filtros - Mat: {}, CPF: {}, Nome: {}, Mês: {}, Tipo: {}",
-                    matricula, cpf, nome, mesReferencia, tipo);
-        
+        LOGGER.debug("Buscando com filtros");
         try (Connection conn = ConexaoBD.getInstance();
              PreparedStatement stmt = conn.prepareStatement(SQL_SELECT_FILTRADO)) {
             
-            // Parâmetros para matrícula
             stmt.setString(1, matricula);
             stmt.setString(2, matricula);
             stmt.setString(3, matricula);
             
-            // Parâmetros para CPF
             stmt.setString(4, cpf);
             stmt.setString(5, cpf);
             stmt.setString(6, cpf);
             
-            // Parâmetros para nome
             String nomeLike = (nome != null && !nome.isEmpty()) ? "%" + nome + "%" : null;
             stmt.setString(7, nomeLike);
             stmt.setString(8, nomeLike);
             stmt.setString(9, nomeLike);
             
-            // Parâmetros para mês
             stmt.setString(10, mesReferencia);
             stmt.setString(11, mesReferencia);
             stmt.setString(12, mesReferencia);
             
-            // Parâmetros para tipo
             String tipoValor = tipo != null ? tipo.getValor() : null;
             stmt.setString(13, tipoValor);
             stmt.setString(14, tipoValor);
@@ -412,56 +446,5 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
             
             return executarConsulta(stmt);
         }
-    }
-    
-    // ===== MÉTODOS AUXILIARES =====
-    
-    /**
-     * Método auxiliar para consultas com um único parâmetro string.
-     * 
-     * @param sql SQL da consulta
-     * @param valor Valor do parâmetro
-     * @return Lista de solicitações
-     * @throws SQLException Se houver erro na operação
-     */
-    private List<Solicitacao> buscarPorString(String sql, String valor) throws SQLException {
-        try (Connection conn = ConexaoBD.getInstance();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            
-            stmt.setString(1, valor);
-            return executarConsulta(stmt);
-        }
-    }
-    
-    /**
-     * Executa uma consulta e retorna a lista de solicitações.
-     * 
-     * @param stmt PreparedStatement já configurado
-     * @return Lista de solicitações
-     * @throws SQLException Se houver erro na operação
-     */
-    private List<Solicitacao> executarConsulta(PreparedStatement stmt) throws SQLException {
-        List<Solicitacao> lista = new ArrayList<>();
-        
-        try (ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                lista.add(mapearResultSet(rs));
-            }
-        }
-        
-        LOGGER.debug("✅ Encontradas {} solicitações", lista.size());
-        return lista;
-    }
-    
-    /**
-     * Registra uma operação no log de auditoria.
-     * 
-     * @param operacao Tipo de operação (INSERT, UPDATE, DELETE)
-     * @param idSolicitacao ID da solicitação afetada
-     * @param detalhes Detalhes adicionais
-     */
-    private void registrarLog(String operacao, Long idSolicitacao, String detalhes) {
-        // TODO: Implementar registro em tabela de logs
-        LOGGER.info("📝 LOG: {} - Solicitação ID: {} - {}", operacao, idSolicitacao, detalhes);
     }
 }
