@@ -63,6 +63,11 @@ public class TelaPrincipal extends JFrame {
     private SolicitacaoDAO dao;
     private AuditoriaService auditoriaService;
     
+    // Watchdog de sessão: reverifica periodicamente se a sessão expirou,
+    // já que antes verificarSessao() só era chamado uma vez, na construção.
+    private static final int INTERVALO_VERIFICACAO_SESSAO_MS = 60 * 1000; // 1 minuto
+    private Timer timerSessao;
+    
     // Cores do tema
     private static final Color COR_PRIMARIA = new Color(52, 152, 219);
     private static final Color COR_SUCESSO = new Color(46, 204, 113);
@@ -83,6 +88,7 @@ public class TelaPrincipal extends JFrame {
         carregarDados();
         atualizarPermissoesUI();
         verificarSessao();
+        iniciarTimerSessao();
         
         LOGGER.info("🖥️ Tela principal inicializada");
     }
@@ -100,10 +106,23 @@ public class TelaPrincipal extends JFrame {
     }
     
     /**
+     * Inicia o watchdog de sessão: reverifica periodicamente se a sessão expirou,
+     * mesmo que a janela fique aberta sem interação por muito tempo.
+     */
+    private void iniciarTimerSessao() {
+        timerSessao = new Timer(INTERVALO_VERIFICACAO_SESSAO_MS, e -> verificarSessao());
+        timerSessao.setRepeats(true);
+        timerSessao.start();
+    }
+    
+    /**
      * Verifica se a sessão ainda é válida.
      */
     private void verificarSessao() {
         if (SessaoUtil.sessaoExpirada()) {
+            if (timerSessao != null) {
+                timerSessao.stop();
+            }
             JOptionPane.showMessageDialog(this,
                 "Sua sessão expirou. Faça login novamente.",
                 "Sessão Expirada",
@@ -130,6 +149,9 @@ public class TelaPrincipal extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
+                if (timerSessao != null) {
+                    timerSessao.stop();
+                }
                 if (SessaoUtil.isLogado()) {
                     auditoriaService.registrarLogout(SessaoUtil.getUsuarioLogado());
                     SessaoUtil.encerrarSessao();
@@ -649,8 +671,9 @@ public class TelaPrincipal extends JFrame {
             SessaoUtil.verificarPermissao(Permissao.CADASTRAR_SOLICITACAO);
             TelaCadastro tela = new TelaCadastro(this);
             tela.setVisible(true);
+            // TelaCadastro só grava o log de auditoria se a solicitação foi realmente
+            // persistida (ver TelaCadastro.salvar()); Cancelar não gera log.
             carregarDados();
-            auditoriaService.registrarCriacao("SOLICITACAO", null, "Nova solicitação criada");
         } catch (SecurityException e) {
             JOptionPane.showMessageDialog(this, e.getMessage(), "Acesso Negado", 
                 JOptionPane.ERROR_MESSAGE);
@@ -682,9 +705,9 @@ public class TelaPrincipal extends JFrame {
             if (optional.isPresent()) {
                 TelaCadastro tela = new TelaCadastro(this, optional.get());
                 tela.setVisible(true);
+                // TelaCadastro só grava o log de auditoria se a edição foi realmente
+                // persistida (ver TelaCadastro.salvar()); Cancelar não gera log.
                 carregarDados();
-                auditoriaService.registrarAtualizacao("SOLICITACAO", id, 
-                    "Solicitação editada: " + optional.get().getNome());
             } else {
                 JOptionPane.showMessageDialog(this,
                     "Solicitação não encontrada.",
@@ -756,8 +779,9 @@ public class TelaPrincipal extends JFrame {
             SwingUtilities.invokeLater(() -> {
                 TelaImportacao tela = new TelaImportacao(this);
                 tela.setVisible(true);
+                // TelaImportacao só grava o log de auditoria se algum registro foi
+                // realmente importado; abrir e fechar a tela não gera log.
                 carregarDados();
-                auditoriaService.registrarImportacao("SOLICITACAO", "Importação de dados do Excel");
             });
         } catch (SecurityException e) {
             JOptionPane.showMessageDialog(this, e.getMessage(), "Acesso Negado", 
@@ -771,7 +795,8 @@ public class TelaPrincipal extends JFrame {
             SwingUtilities.invokeLater(() -> {
                 TelaExportacao tela = new TelaExportacao(this);
                 tela.setVisible(true);
-                auditoriaService.registrarExportacao("SOLICITACAO", "Exportação de dados para Excel");
+                // TelaExportacao só grava o log de auditoria após uma exportação
+                // realmente concluída; abrir e cancelar não gera log.
             });
         } catch (SecurityException e) {
             JOptionPane.showMessageDialog(this, e.getMessage(), "Acesso Negado", 
@@ -856,6 +881,9 @@ public class TelaPrincipal extends JFrame {
             JOptionPane.YES_NO_OPTION);
         
         if (confirm == JOptionPane.YES_OPTION) {
+            if (timerSessao != null) {
+                timerSessao.stop();
+            }
             if (SessaoUtil.isLogado()) {
                 auditoriaService.registrarLogout(SessaoUtil.getUsuarioLogado());
                 SessaoUtil.encerrarSessao();

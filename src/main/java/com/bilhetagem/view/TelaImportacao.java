@@ -3,7 +3,10 @@ package com.bilhetagem.view;
 import com.bilhetagem.dao.SolicitacaoDAO;
 import com.bilhetagem.dao.SolicitacaoDAOImpl;
 import com.bilhetagem.model.Solicitacao;
+import com.bilhetagem.model.Usuario.Permissao;
+import com.bilhetagem.service.AuditoriaService;
 import com.bilhetagem.util.ExcelUtil;
+import com.bilhetagem.util.SessaoUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -41,6 +44,7 @@ public class TelaImportacao extends JDialog {
     
     // ===== DADOS =====
     private SolicitacaoDAO dao;
+    private AuditoriaService auditoriaService;
     private List<Solicitacao> dadosImportados;
     private JFrame parent;
     
@@ -54,7 +58,19 @@ public class TelaImportacao extends JDialog {
     public TelaImportacao(JFrame parent) {
         super(parent, "Importar Dados do Excel", true);
         this.parent = parent;
+        
+        // Auto-checagem de permissão (defesa em profundidade), mesmo padrão
+        // já usado em TelaUsuarios e TelaAuditoria.
+        if (!SessaoUtil.temPermissao(Permissao.IMPORTAR_DADOS)) {
+            JOptionPane.showMessageDialog(this,
+                "Você não tem permissão para importar dados.",
+                "Acesso Negado", JOptionPane.ERROR_MESSAGE);
+            dispose();
+            return;
+        }
+        
         this.dao = new SolicitacaoDAOImpl();
+        this.auditoriaService = new AuditoriaService();
         
         configurarJanela();
         criarComponentes();
@@ -394,6 +410,13 @@ public class TelaImportacao extends JDialog {
                 erros > 0 ? JOptionPane.WARNING_MESSAGE : JOptionPane.INFORMATION_MESSAGE);
             
             lblStatus.setText(String.format("✅ Importação finalizada: %d sucessos, %d erros", sucessos, erros));
+            
+            // Só registra auditoria se algo foi realmente persistido no banco.
+            if (sucessos > 0) {
+                auditoriaService.registrarImportacao("SOLICITACAO",
+                    String.format("Importação de dados do Excel: %d registros importados, %d falhas",
+                        sucessos, erros));
+            }
             
             // Fechar tela se tudo deu certo
             if (erros == 0) {

@@ -330,7 +330,12 @@ public class ExcelUtil {
             // CPF
             String cpf = obterValorCelula(row, COL_CPF);
             if (cpf != null && !cpf.isEmpty()) {
-                solicitacao.setCpf(cpf.trim().replaceAll("[^0-9]", ""));
+                String cpfLimpo = cpf.trim().replaceAll("[^0-9]", "");
+                if (!CpfUtil.isValid(cpfLimpo)) {
+                    LOGGER.warn("CPF inválido na linha {}: {}", row.getRowNum(), cpf);
+                    return null;
+                }
+                solicitacao.setCpf(cpfLimpo);
             }
             
             // Nome

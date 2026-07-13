@@ -3,7 +3,10 @@ package com.bilhetagem.view;
 import com.bilhetagem.dao.SolicitacaoDAO;
 import com.bilhetagem.dao.SolicitacaoDAOImpl;
 import com.bilhetagem.model.Solicitacao;
+import com.bilhetagem.model.Usuario.Permissao;
+import com.bilhetagem.service.AuditoriaService;
 import com.bilhetagem.util.ExcelUtil;
+import com.bilhetagem.util.SessaoUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -44,6 +47,7 @@ public class TelaExportacao extends JDialog {
     
     // ===== DADOS =====
     private SolicitacaoDAO dao;
+    private AuditoriaService auditoriaService;
     private List<Solicitacao> todasSolicitacoes;
     private JFrame parent;
     private Map<String, Map<String, Long>> dadosConsolidados;
@@ -58,7 +62,19 @@ public class TelaExportacao extends JDialog {
     public TelaExportacao(JFrame parent) {
         super(parent, "Exportar Dados para Excel", true);
         this.parent = parent;
+        
+        // Auto-checagem de permissão (defesa em profundidade), mesmo padrão
+        // já usado em TelaUsuarios e TelaAuditoria.
+        if (!SessaoUtil.temPermissao(Permissao.EXPORTAR_DADOS)) {
+            JOptionPane.showMessageDialog(this,
+                "Você não tem permissão para exportar dados.",
+                "Acesso Negado", JOptionPane.ERROR_MESSAGE);
+            dispose();
+            return;
+        }
+        
         this.dao = new SolicitacaoDAOImpl();
+        this.auditoriaService = new AuditoriaService();
         
         configurarJanela();
         criarComponentes();
@@ -425,6 +441,11 @@ public class TelaExportacao extends JDialog {
             
             progressBar.setIndeterminate(false);
             progressBar.setValue(100);
+            
+            // Só registra auditoria após o arquivo ter sido efetivamente gravado com sucesso.
+            String tipoExportacao = rbRelatorioResumido.isSelected() ? "Relatório resumido" : "Dados completos";
+            auditoriaService.registrarExportacao("SOLICITACAO",
+                "Exportação de dados para Excel (" + tipoExportacao + "): " + arquivo.getName());
             
             JOptionPane.showMessageDialog(this,
                 "✅ Exportação concluída com sucesso!\n\n" +

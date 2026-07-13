@@ -57,21 +57,24 @@ public class LogAuditoriaDAOImpl implements LogAuditoriaDAO {
         LOGGER.debug("📝 Registrando log de auditoria: {}", log.getAcao());
         
         try (Connection conn = ConexaoBD.getInstance();
-             PreparedStatement stmt = conn.prepareStatement(SQL_INSERT, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement stmt = conn.prepareStatement(SQL_INSERT)) {
             
             stmt.setLong(1, log.getUsuarioId());
             stmt.setString(2, log.getAcao());
             stmt.setString(3, log.getEntidade());
             stmt.setObject(4, log.getEntidadeId());
             stmt.setString(5, log.getDetalhes());
-            stmt.setString(6, log.getIp() != null ? log.getIp() : "localhost");
+            stmt.setString(6, log.getIp());
             
             int affectedRows = stmt.executeUpdate();
             
             if (affectedRows > 0) {
-                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-                    if (generatedKeys.next()) {
-                        log.setId(generatedKeys.getLong(1));
+                // Recuperar ID usando SQLite específico (mesmo padrão de
+                // UsuarioDAOImpl e SolicitacaoDAOImpl).
+                try (Statement idStmt = conn.createStatement();
+                     ResultSet rs = idStmt.executeQuery("SELECT last_insert_rowid()")) {
+                    if (rs.next()) {
+                        log.setId(rs.getLong(1));
                     }
                 }
                 LOGGER.info("✅ Log registrado com ID: {}", log.getId());

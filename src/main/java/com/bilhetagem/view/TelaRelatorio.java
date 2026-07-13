@@ -4,6 +4,10 @@ import com.bilhetagem.dao.SolicitacaoDAO;
 import com.bilhetagem.dao.SolicitacaoDAOImpl;
 import com.bilhetagem.model.Solicitacao;
 import com.bilhetagem.model.Solicitacao.TipoSolicitacao;
+import com.bilhetagem.model.Usuario.Permissao;
+import com.bilhetagem.service.AuditoriaService;
+import com.bilhetagem.util.ExcelUtil;
+import com.bilhetagem.util.SessaoUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jfree.chart.ChartFactory;
@@ -18,8 +22,10 @@ import org.jfree.chart.labels.StandardPieSectionLabelGenerator;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.io.File;
 import java.sql.SQLException;
 import java.text.DecimalFormat;
 import java.util.*;
@@ -53,6 +59,7 @@ public class TelaRelatorio extends JFrame {
     
     // ===== DADOS =====
     private SolicitacaoDAO dao;
+    private AuditoriaService auditoriaService;
     private List<Solicitacao> todasSolicitacoes;
     private Map<String, Map<String, Long>> dadosConsolidados;
     
@@ -66,7 +73,18 @@ public class TelaRelatorio extends JFrame {
      * Construtor da tela de relatórios.
      */
     public TelaRelatorio() {
+        // Auto-checagem de permissão (defesa em profundidade), mesmo padrão
+        // já usado em TelaUsuarios e TelaAuditoria.
+        if (!SessaoUtil.temPermissao(Permissao.GERAR_RELATORIOS)) {
+            JOptionPane.showMessageDialog(this,
+                "Você não tem permissão para acessar relatórios.",
+                "Acesso Negado", JOptionPane.ERROR_MESSAGE);
+            dispose();
+            return;
+        }
+        
         dao = new SolicitacaoDAOImpl();
+        auditoriaService = new AuditoriaService();
         dadosConsolidados = new LinkedHashMap<>();
         
         configurarJanela();
@@ -488,12 +506,82 @@ public class TelaRelatorio extends JFrame {
     }
     
     /**
-     * Exporta o relatório para Excel.
+     * Exporta o relatório resumido (respeitando o filtro de mês atual) para Excel.
      */
     private void exportarRelatorio() {
-        JOptionPane.showMessageDialog(this,
-            "Funcionalidade em desenvolvimento.\n" +
-            "Em breve será possível exportar relatórios para Excel.",
-            "Exportar", JOptionPane.INFORMATION_MESSAGE);
+        if (dadosConsolidados == null || dadosConsolidados.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                "Não há dados para exportar.",
+                "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        String mesSelecionado = (String) cbMesReferencia.getSelectedItem();
+        Map<String, Map<String, Long>> dadosParaExportar = dadosConsolidados;
+        
+        if (mesSelecionado != null && !mesSelecionado.equals("Todos os Meses")) {
+            dadosParaExportar = new LinkedHashMap<>();
+            if (dadosConsolidados.containsKey(mesSelecionado)) {
+                dadosParaExportar.put(mesSelecionado, dadosConsolidados.get(mesSelecionado));
+            }
+        }
+        
+        if (dadosParaExportar.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                "Não há dados para o mês selecionado.",
+                "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Salvar Relatório Excel");
+        fileChooser.setFileFilter(new FileNameExtensionFilter("Arquivo Excel (*.xlsx)", "xlsx"));
+        String nomePadrao = "relatorio_mensal_" +
+            java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+        fileChooser.setSelectedFile(new File(nomePadrao + ".xlsx"));
+        
+        int resultado = fileChooser.showSaveDialog(this);
+        if (resultado != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        
+        File arquivo = fileChooser.getSelectedFile();
+        String caminho = arquivo.getAbsolutePath();
+        if (!caminho.toLowerCase().endsWith(".xlsx")) {
+            caminho += ".xlsx";
+            arquivo = new File(caminho);
+        }
+        
+        if (arquivo.exists()) {
+            int confirm = JOptionPane.showConfirmDialog(this,
+                "O arquivo já existe. Deseja sobrescrever?",
+                "Confirmar Sobrescrita",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+            if (confirm != JOptionPane.YES_OPTION) {
+                return;
+            }
+        }
+        
+        try {
+            setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+            ExcelUtil.exportarRelatorioExcel(dadosParaExportar, arquivo);
+            
+            // Só registra auditoria após o arquivo ter sido efetivamente gravado com sucesso.
+            auditoriaService.registrarExportacao("RELATORIO",
+                "Relatório mensal exportado para Excel: " + arquivo.getName());
+            
+            JOptionPane.showMessageDialog(this,
+                "✅ Relatório exportado com sucesso!\n\n" +
+                "📁 Arquivo salvo em:\n" + arquivo.getAbsolutePath(),
+                "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception e) {
+            LOGGER.error("❌ Erro ao exportar relatório", e);
+            JOptionPane.showMessageDialog(this,
+                "Erro ao exportar relatório:\n" + e.getMessage(),
+                "Erro", JOptionPane.ERROR_MESSAGE);
+        } finally {
+            setCursor(Cursor.getDefaultCursor());
+        }
     }
 }

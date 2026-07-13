@@ -4,6 +4,7 @@ import com.bilhetagem.dao.SolicitacaoDAO;
 import com.bilhetagem.dao.SolicitacaoDAOImpl;
 import com.bilhetagem.model.Solicitacao;
 import com.bilhetagem.model.Solicitacao.TipoSolicitacao;
+import com.bilhetagem.service.AuditoriaService;
 import com.bilhetagem.util.CpfUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -45,6 +46,10 @@ public class TelaCadastro extends JDialog {
     private JTextArea txtObservacao;
     
     private SolicitacaoDAO dao;
+    private AuditoriaService auditoriaService;
+    
+    /** Indica se uma persistência (criação ou edição) foi de fato realizada com sucesso. */
+    private boolean salvo = false;
     
     /**
      * Construtor para nova solicitação.
@@ -54,6 +59,7 @@ public class TelaCadastro extends JDialog {
         this.parent = parent;
         this.isEditando = false;
         this.dao = new SolicitacaoDAOImpl();
+        this.auditoriaService = new AuditoriaService();
         inicializarComponentes();
         preencherDadosPadrao();
     }
@@ -67,8 +73,18 @@ public class TelaCadastro extends JDialog {
         this.solicitacaoEditando = solicitacao;
         this.isEditando = true;
         this.dao = new SolicitacaoDAOImpl();
+        this.auditoriaService = new AuditoriaService();
         inicializarComponentes();
         preencherDados();
+    }
+    
+    /**
+     * Indica se a solicitação foi efetivamente salva (criada ou atualizada).
+     * Retorna {@code false} se o diálogo foi fechado via Cancelar ou fechado
+     * sem que uma persistência bem-sucedida tenha ocorrido.
+     */
+    public boolean isSalvo() {
+        return salvo;
     }
     
     /**
@@ -285,12 +301,24 @@ public class TelaCadastro extends JDialog {
             
             // Salvar
             if (isEditando) {
-                dao.atualizar(solicitacao);
+                boolean atualizado = dao.atualizar(solicitacao);
+                if (!atualizado) {
+                    JOptionPane.showMessageDialog(this,
+                        "Não foi possível atualizar a solicitação.",
+                        "Erro", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                salvo = true;
+                auditoriaService.registrarAtualizacao("SOLICITACAO", solicitacao.getId(),
+                    "Solicitação editada: " + solicitacao.getNome());
                 JOptionPane.showMessageDialog(this,
                     "Solicitação atualizada com sucesso!",
                     "Sucesso", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                dao.salvar(solicitacao);
+                Solicitacao salva = dao.salvar(solicitacao);
+                salvo = true;
+                auditoriaService.registrarCriacao("SOLICITACAO", salva.getId(),
+                    "Nova solicitação criada: " + salva.getNome());
                 JOptionPane.showMessageDialog(this,
                     "Solicitação cadastrada com sucesso!",
                     "Sucesso", JOptionPane.INFORMATION_MESSAGE);
