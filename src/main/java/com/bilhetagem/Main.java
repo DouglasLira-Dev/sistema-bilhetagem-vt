@@ -2,6 +2,7 @@ package com.bilhetagem;
 
 import com.bilhetagem.dao.ConexaoBD;
 import com.bilhetagem.util.BancoUtil;
+import com.bilhetagem.util.PrimeiroAcessoUtil;
 import com.bilhetagem.view.TelaLogin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -77,6 +78,9 @@ public class Main {
                 
                 // Inicializar estrutura do banco
                 BancoUtil.inicializarBanco();
+                
+                // Verificar primeiro acesso (cria admin com senha aleatória se não houver usuários)
+                PrimeiroAcessoUtil.verificarPrimeiroAcesso();
             } else {
                 LOGGER.warn("⚠️ Não foi possível estabelecer conexão com o banco de dados.");
                 LOGGER.warn("   Verifique se o diretório 'data/' tem permissões de escrita.");
