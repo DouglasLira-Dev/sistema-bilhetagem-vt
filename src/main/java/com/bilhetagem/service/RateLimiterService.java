@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 
  * <p>Bloqueia temporariamente após múltiplas tentativas falhas.</p>
  * 
- * @author [Seu Nome]
+ * @author Equipe de Desenvolvimento
  * @version 1.0.0
  * @since 2026-01-09
  */
@@ -37,8 +37,8 @@ public class RateLimiterService {
         current++;
         attempts.put(login, current);
         
-        // Verificar se excedeu o limite
-        if (current >= MAX_ATTEMPTS) {
+        // Verificar se excedeu o limite (após 5 tentativas, bloqueia na 6ª)
+        if (current > MAX_ATTEMPTS) {
             blockUntil.put(login, System.currentTimeMillis() + BLOCK_TIME_MS);
             return true;
         }
@@ -77,13 +77,6 @@ public class RateLimiterService {
         long remaining = (blockEnd - System.currentTimeMillis()) / 1000 / 60;
         return Math.max(0, remaining);
     }
-
-    /**
-     * Obtém o número de tentativas para um login.
-     */
-    public int getAttemptCount(String login) {
-        return attempts.getOrDefault(login, 0);
-    }
     
     /**
      * Reseta as tentativas de um login (após login bem-sucedido).
@@ -91,5 +84,12 @@ public class RateLimiterService {
     public void resetAttempts(String login) {
         attempts.remove(login);
         blockUntil.remove(login);
+    }
+    
+    /**
+     * Obtém o número de tentativas para um login.
+     */
+    public int getAttemptCount(String login) {
+        return attempts.getOrDefault(login, 0);
     }
 }

@@ -12,26 +12,18 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Testes unitários para o SolicitacaoDAO.
- * 
- * @author [Seu Nome]
- * @version 1.0.0
- * @since 2026-01-08
- */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-public class SolicitacaoDAOTest {
+class SolicitacaoDAOTest {
     
     private static SolicitacaoDAO dao;
     private static Solicitacao solicitacaoTeste;
+    private static Long idSalvo;
     
     @BeforeAll
     static void setUpAll() throws SQLException {
-        // Inicializar banco para testes
         BancoUtil.inicializarBanco();
         dao = new SolicitacaoDAOImpl();
         
-        // Criar solicitação de teste
         solicitacaoTeste = new Solicitacao();
         solicitacaoTeste.setDataEfetivacao(LocalDate.now());
         solicitacaoTeste.setMesReferencia("01/2026");
@@ -47,27 +39,22 @@ public class SolicitacaoDAOTest {
     @Test
     @Order(1)
     void testSalvar() throws SQLException {
-        // Testar inserção
         Solicitacao salva = dao.salvar(solicitacaoTeste);
         
         assertNotNull(salva);
         assertNotNull(salva.getId());
         assertEquals(solicitacaoTeste.getNome(), salva.getNome());
         
-        // Armazenar ID para testes subsequentes
-        solicitacaoTeste.setId(salva.getId());
-        
-        // Verificar se foi salvo corretamente
-        Optional<Solicitacao> encontrada = dao.buscarPorId(salva.getId());
-        assertTrue(encontrada.isPresent());
-        assertEquals(salva.getNome(), encontrada.get().getNome());
+        idSalvo = salva.getId();
+        solicitacaoTeste.setId(idSalvo);
     }
     
     @Test
     @Order(2)
     void testBuscarPorId() throws SQLException {
-        Optional<Solicitacao> encontrada = dao.buscarPorId(solicitacaoTeste.getId());
+        assertNotNull(idSalvo, "ID não foi salvo no teste anterior");
         
+        Optional<Solicitacao> encontrada = dao.buscarPorId(idSalvo);
         assertTrue(encontrada.isPresent());
         assertEquals(solicitacaoTeste.getMatricula(), encontrada.get().getMatricula());
         assertEquals(solicitacaoTeste.getCpf(), encontrada.get().getCpf());
@@ -77,25 +64,22 @@ public class SolicitacaoDAOTest {
     @Order(3)
     void testBuscarPorMatricula() throws SQLException {
         List<Solicitacao> lista = dao.buscarPorMatricula(solicitacaoTeste.getMatricula());
-        
         assertFalse(lista.isEmpty());
-        assertTrue(lista.stream().anyMatch(s -> s.getId().equals(solicitacaoTeste.getId())));
+        assertTrue(lista.stream().anyMatch(s -> s.getId().equals(idSalvo)));
     }
     
     @Test
     @Order(4)
     void testBuscarPorCpf() throws SQLException {
         List<Solicitacao> lista = dao.buscarPorCpf(solicitacaoTeste.getCpf());
-        
         assertFalse(lista.isEmpty());
-        assertTrue(lista.stream().anyMatch(s -> s.getId().equals(solicitacaoTeste.getId())));
+        assertTrue(lista.stream().anyMatch(s -> s.getId().equals(idSalvo)));
     }
     
     @Test
     @Order(5)
     void testBuscarPorNome() throws SQLException {
         List<Solicitacao> lista = dao.buscarPorNome("Silva");
-        
         assertFalse(lista.isEmpty());
         assertTrue(lista.stream().anyMatch(s -> s.getNome().contains("Silva")));
     }
@@ -104,7 +88,6 @@ public class SolicitacaoDAOTest {
     @Order(6)
     void testBuscarPorMesReferencia() throws SQLException {
         List<Solicitacao> lista = dao.buscarPorMesReferencia("01/2026");
-        
         assertFalse(lista.isEmpty());
         assertTrue(lista.stream().anyMatch(s -> s.getMesReferencia().equals("01/2026")));
     }
@@ -112,7 +95,8 @@ public class SolicitacaoDAOTest {
     @Test
     @Order(7)
     void testAtualizar() throws SQLException {
-        // Modificar alguns dados
+        assertNotNull(idSalvo, "ID não foi salvo no teste anterior");
+        
         solicitacaoTeste.setNome("João da Silva Teste Atualizado");
         solicitacaoTeste.setQuantidadeValeTipoA(3);
         solicitacaoTeste.setTipoSolicitacao(TipoSolicitacao.ALTERACAO);
@@ -120,8 +104,7 @@ public class SolicitacaoDAOTest {
         boolean atualizado = dao.atualizar(solicitacaoTeste);
         assertTrue(atualizado);
         
-        // Verificar atualização
-        Optional<Solicitacao> encontrada = dao.buscarPorId(solicitacaoTeste.getId());
+        Optional<Solicitacao> encontrada = dao.buscarPorId(idSalvo);
         assertTrue(encontrada.isPresent());
         assertEquals("João da Silva Teste Atualizado", encontrada.get().getNome());
         assertEquals(3, encontrada.get().getQuantidadeValeTipoA());
@@ -131,11 +114,9 @@ public class SolicitacaoDAOTest {
     @Test
     @Order(8)
     void testBuscarComFiltros() throws SQLException {
-        // Testar filtro apenas por nome
         List<Solicitacao> lista = dao.buscarComFiltros(null, null, "Teste", null, null);
         assertFalse(lista.isEmpty());
         
-        // Testar filtro por matrícula e tipo
         lista = dao.buscarComFiltros(
             solicitacaoTeste.getMatricula(), 
             null, 
@@ -168,7 +149,9 @@ public class SolicitacaoDAOTest {
     @Test
     @Order(11)
     void testExistePorId() throws SQLException {
-        boolean existe = dao.existePorId(solicitacaoTeste.getId());
+        assertNotNull(idSalvo, "ID não foi salvo no teste anterior");
+        
+        boolean existe = dao.existePorId(idSalvo);
         assertTrue(existe);
         
         boolean naoExiste = dao.existePorId(999999L);
@@ -178,11 +161,12 @@ public class SolicitacaoDAOTest {
     @Test
     @Order(12)
     void testExcluir() throws SQLException {
-        boolean excluido = dao.excluir(solicitacaoTeste.getId());
+        assertNotNull(idSalvo, "ID não foi salvo no teste anterior");
+        
+        boolean excluido = dao.excluir(idSalvo);
         assertTrue(excluido);
         
-        // Verificar se realmente foi excluído
-        Optional<Solicitacao> encontrada = dao.buscarPorId(solicitacaoTeste.getId());
+        Optional<Solicitacao> encontrada = dao.buscarPorId(idSalvo);
         assertFalse(encontrada.isPresent());
     }
 }

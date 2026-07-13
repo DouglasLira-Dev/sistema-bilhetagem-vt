@@ -56,12 +56,11 @@ public class UsuarioDAOImpl implements UsuarioDAO {
     public Usuario salvar(Usuario usuario) throws SQLException {
         LOGGER.debug("Salvando usuário: {}", usuario.getLogin());
         
-        // Hashear a senha antes de salvar
         String senhaHash = CriptografiaUtil.hashSenha(usuario.getSenha());
         usuario.setSenha(senhaHash);
         
         try (Connection conn = ConexaoBD.getInstance();
-             PreparedStatement stmt = conn.prepareStatement(SQL_INSERT, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement stmt = conn.prepareStatement(SQL_INSERT)) {
             
             stmt.setString(1, usuario.getLogin());
             stmt.setString(2, usuario.getSenha());
@@ -76,9 +75,11 @@ public class UsuarioDAOImpl implements UsuarioDAO {
                 throw new SQLException("Falha ao salvar usuário");
             }
             
-            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    usuario.setId(generatedKeys.getLong(1));
+            // Recuperar ID usando SQLite específico
+            try (Statement idStmt = conn.createStatement();
+                 ResultSet rs = idStmt.executeQuery("SELECT last_insert_rowid()")) {
+                if (rs.next()) {
+                    usuario.setId(rs.getLong(1));
                 }
             }
             

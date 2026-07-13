@@ -187,7 +187,7 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
         }
         
         try (Connection conn = ConexaoBD.getInstance();
-             PreparedStatement stmt = conn.prepareStatement(SQL_INSERT, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement stmt = conn.prepareStatement(SQL_INSERT)) {
             
             preencherStatement(stmt, solicitacao);
             int affectedRows = stmt.executeUpdate();
@@ -196,9 +196,11 @@ public class SolicitacaoDAOImpl implements SolicitacaoDAO {
                 throw new SQLException("Falha ao salvar solicitação");
             }
             
-            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    solicitacao.setId(generatedKeys.getLong(1));
+            // Recuperar ID usando SQLite específico
+            try (Statement idStmt = conn.createStatement();
+                 ResultSet rs = idStmt.executeQuery("SELECT last_insert_rowid()")) {
+                if (rs.next()) {
+                    solicitacao.setId(rs.getLong(1));
                 }
             }
             
