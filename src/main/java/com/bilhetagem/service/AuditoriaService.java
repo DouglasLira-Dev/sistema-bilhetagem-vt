@@ -8,6 +8,8 @@ import com.bilhetagem.util.SessaoUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.sql.SQLException;
 
 /**
@@ -24,10 +26,30 @@ public class AuditoriaService {
     
     private static final Logger LOGGER = LogManager.getLogger(AuditoriaService.class);
     
+    /** Identificador da máquina local (host + IP), resolvido uma única vez. */
+    private static final String HOST_LOCAL = resolverHostLocal();
+    
     private LogAuditoriaDAO logDAO;
     
     public AuditoriaService() {
         this.logDAO = new LogAuditoriaDAOImpl();
+    }
+    
+    /**
+     * Resolve o nome do host e o IP da máquina local.
+     * 
+     * <p>Como esta é uma aplicação desktop (sem requisições HTTP), não existe
+     * um "IP do cliente" no sentido de servidor web. O melhor identificador
+     * disponível é a máquina onde a aplicação está rodando.</p>
+     */
+    private static String resolverHostLocal() {
+        try {
+            InetAddress local = InetAddress.getLocalHost();
+            return local.getHostName() + " (" + local.getHostAddress() + ")";
+        } catch (UnknownHostException e) {
+            LOGGER.warn("⚠️ Não foi possível resolver o host local para auditoria", e);
+            return "desconhecido";
+        }
     }
     
     /**
@@ -48,7 +70,7 @@ public class AuditoriaService {
             log.setEntidade(entidade);
             log.setEntidadeId(entidadeId);
             log.setDetalhes(detalhes);
-            log.setIp("localhost"); // TODO: Obter IP real
+            log.setIp(HOST_LOCAL);
             
             logDAO.registrar(log);
             LOGGER.info("📝 Log registrado: {}", acao);

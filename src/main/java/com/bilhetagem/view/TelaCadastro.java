@@ -4,6 +4,7 @@ import com.bilhetagem.dao.SolicitacaoDAO;
 import com.bilhetagem.dao.SolicitacaoDAOImpl;
 import com.bilhetagem.model.Solicitacao;
 import com.bilhetagem.model.Solicitacao.TipoSolicitacao;
+import com.bilhetagem.util.CpfUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -273,7 +274,7 @@ public class TelaCadastro extends JDialog {
             solicitacao.setDataEfetivacao(LocalDate.parse(txtDataEfetivacao.getText().trim(), formatter));
             solicitacao.setMesReferencia(txtMesReferencia.getText().trim());
             solicitacao.setMatricula(txtMatricula.getText().trim());
-            solicitacao.setCpf(txtCpf.getText().trim());
+            solicitacao.setCpf(CpfUtil.limpar(txtCpf.getText().trim()));
             solicitacao.setNome(txtNome.getText().trim());
             solicitacao.setNumeroCartao(txtNumeroCartao.getText().trim());
             solicitacao.setQuantidadeValeTipoA(Integer.parseInt(txtQuantidadeVales.getText().trim()));
@@ -357,6 +358,13 @@ public class TelaCadastro extends JDialog {
             JOptionPane.showMessageDialog(this,
                 "CPF é obrigatório!",
                 "Campo Obrigatório", JOptionPane.WARNING_MESSAGE);
+            txtCpf.requestFocus();
+            return false;
+        }
+        if (!CpfUtil.isValid(cpf)) {
+            JOptionPane.showMessageDialog(this,
+                "CPF inválido! Verifique os dígitos informados.",
+                "Erro de Validação", JOptionPane.WARNING_MESSAGE);
             txtCpf.requestFocus();
             return false;
         }
