@@ -4,6 +4,7 @@ import com.bilhetagem.dao.SolicitacaoDAO;
 import com.bilhetagem.dao.SolicitacaoDAOImpl;
 import com.bilhetagem.model.Solicitacao;
 import com.bilhetagem.model.Solicitacao.TipoSolicitacao;
+import com.bilhetagem.model.Usuario.Permissao;
 import com.bilhetagem.service.AuditoriaService;
 import com.bilhetagem.util.SessaoUtil;
 import org.apache.logging.log4j.LogManager;
@@ -15,7 +16,6 @@ import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.SQLException;
-import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -24,7 +24,7 @@ import java.util.List;
  * 
  * <p>Esta classe implementa a interface gráfica principal da aplicação,
  * contendo a tabela de solicitações, filtros de busca, totalizadores
- * e botões de ação.</p>
+ * e botões de ação com controle de permissões.</p>
  * 
  * @author Equipe de Desenvolvimento
  * @version 1.0.0
@@ -51,6 +51,14 @@ public class TelaPrincipal extends JFrame {
     private JLabel lblTotalRenuncias;
     private JLabel lblTotalAlteracoes;
     
+    // Botões
+    private JButton btnNovo;
+    private JButton btnEditar;
+    private JButton btnExcluir;
+    private JButton btnImportar;
+    private JButton btnExportar;
+    private JButton btnAtualizar;
+    
     // DAO e Serviços
     private SolicitacaoDAO dao;
     private AuditoriaService auditoriaService;
@@ -73,11 +81,28 @@ public class TelaPrincipal extends JFrame {
         criarMenuBar();
         criarPainelPrincipal();
         carregarDados();
-        
-        // Verificar sessão
+        atualizarPermissoesUI();
         verificarSessao();
         
         LOGGER.info("🖥️ Tela principal inicializada");
+    }
+    
+    /**
+     * Atualiza a interface baseado nas permissões do usuário.
+     */
+    private void atualizarPermissoesUI() {
+        // Botões de ação
+        btnNovo.setEnabled(SessaoUtil.temPermissao(Permissao.CADASTRAR_SOLICITACAO));
+        btnEditar.setEnabled(SessaoUtil.temPermissao(Permissao.EDITAR_SOLICITACAO));
+        btnExcluir.setEnabled(SessaoUtil.temPermissao(Permissao.EXCLUIR_SOLICITACAO));
+        btnImportar.setEnabled(SessaoUtil.temPermissao(Permissao.IMPORTAR_DADOS));
+        btnExportar.setEnabled(SessaoUtil.temPermissao(Permissao.EXPORTAR_DADOS));
+        btnAtualizar.setEnabled(SessaoUtil.temPermissao(Permissao.CONSULTAR_SOLICITACAO));
+        
+        // Desabilitar clique duplo para editar se não tiver permissão
+        if (!SessaoUtil.temPermissao(Permissao.EDITAR_SOLICITACAO)) {
+            // O clique duplo será verificado no evento
+        }
     }
     
     /**
@@ -129,19 +154,23 @@ public class TelaPrincipal extends JFrame {
     }
     
     /**
-     * Cria a barra de menu da aplicação.
+     * Cria a barra de menu da aplicação com controle de permissões.
      */
     private void criarMenuBar() {
         JMenuBar menuBar = new JMenuBar();
         
         // Menu Arquivo
         JMenu menuArquivo = new JMenu("📁 Arquivo");
-        JMenuItem itemImportar = new JMenuItem("Importar Excel");
-        JMenuItem itemExportar = new JMenuItem("Exportar Excel");
-        JMenuItem itemSair = new JMenuItem("Sair");
         
+        JMenuItem itemImportar = new JMenuItem("Importar Excel");
+        itemImportar.setEnabled(SessaoUtil.temPermissao(Permissao.IMPORTAR_DADOS));
         itemImportar.addActionListener(e -> abrirImportacao());
+        
+        JMenuItem itemExportar = new JMenuItem("Exportar Excel");
+        itemExportar.setEnabled(SessaoUtil.temPermissao(Permissao.EXPORTAR_DADOS));
         itemExportar.addActionListener(e -> abrirExportacao());
+        
+        JMenuItem itemSair = new JMenuItem("Sair");
         itemSair.addActionListener(e -> sairAplicacao());
         
         menuArquivo.add(itemImportar);
@@ -151,14 +180,24 @@ public class TelaPrincipal extends JFrame {
         
         // Menu Relatórios
         JMenu menuRelatorios = new JMenu("📊 Relatórios");
-        JMenuItem itemRelatorioMensal = new JMenuItem("Relatório Mensal");
-        JMenuItem itemGraficos = new JMenuItem("Gráficos");
         
+        JMenuItem itemRelatorioMensal = new JMenuItem("Relatório Mensal");
+        itemRelatorioMensal.setEnabled(SessaoUtil.temPermissao(Permissao.GERAR_RELATORIOS));
         itemRelatorioMensal.addActionListener(e -> abrirRelatorioMensal());
+        
+        JMenuItem itemGraficos = new JMenuItem("Gráficos");
+        itemGraficos.setEnabled(SessaoUtil.temPermissao(Permissao.GERAR_RELATORIOS));
         itemGraficos.addActionListener(e -> abrirGraficos());
         
         menuRelatorios.add(itemRelatorioMensal);
         menuRelatorios.add(itemGraficos);
+        
+        // Menu Auditoria (apenas ADMIN e GERENTE)
+        JMenu menuAuditoria = new JMenu("🔍 Auditoria");
+        JMenuItem itemAuditoria = new JMenuItem("Consultar Logs");
+        itemAuditoria.setEnabled(SessaoUtil.temPermissao(Permissao.VER_AUDITORIA));
+        itemAuditoria.addActionListener(e -> abrirAuditoria());
+        menuAuditoria.add(itemAuditoria);
         
         // Menu Usuário
         JMenu menuUsuario = new JMenu("👤 Usuário");
@@ -187,6 +226,9 @@ public class TelaPrincipal extends JFrame {
         // Adicionar menus
         menuBar.add(menuArquivo);
         menuBar.add(menuRelatorios);
+        if (SessaoUtil.temPermissao(Permissao.VER_AUDITORIA)) {
+            menuBar.add(menuAuditoria);
+        }
         menuBar.add(menuUsuario);
         menuBar.add(menuAjuda);
         
@@ -317,16 +359,16 @@ public class TelaPrincipal extends JFrame {
         tabelaSolicitacoes.setSelectionForeground(Color.BLACK);
         
         // Configurar largura das colunas
-        tabelaSolicitacoes.getColumnModel().getColumn(0).setPreferredWidth(50);  // ID
-        tabelaSolicitacoes.getColumnModel().getColumn(1).setPreferredWidth(80);  // Data
-        tabelaSolicitacoes.getColumnModel().getColumn(2).setPreferredWidth(70);  // Mês
-        tabelaSolicitacoes.getColumnModel().getColumn(3).setPreferredWidth(80);  // Matrícula
-        tabelaSolicitacoes.getColumnModel().getColumn(4).setPreferredWidth(100); // CPF
-        tabelaSolicitacoes.getColumnModel().getColumn(5).setPreferredWidth(250); // Nome
-        tabelaSolicitacoes.getColumnModel().getColumn(6).setPreferredWidth(100); // Cartão
-        tabelaSolicitacoes.getColumnModel().getColumn(7).setPreferredWidth(70);  // Qtd
-        tabelaSolicitacoes.getColumnModel().getColumn(8).setPreferredWidth(90);  // Tipo
-        tabelaSolicitacoes.getColumnModel().getColumn(9).setPreferredWidth(150); // Observação
+        tabelaSolicitacoes.getColumnModel().getColumn(0).setPreferredWidth(50);
+        tabelaSolicitacoes.getColumnModel().getColumn(1).setPreferredWidth(80);
+        tabelaSolicitacoes.getColumnModel().getColumn(2).setPreferredWidth(70);
+        tabelaSolicitacoes.getColumnModel().getColumn(3).setPreferredWidth(80);
+        tabelaSolicitacoes.getColumnModel().getColumn(4).setPreferredWidth(100);
+        tabelaSolicitacoes.getColumnModel().getColumn(5).setPreferredWidth(250);
+        tabelaSolicitacoes.getColumnModel().getColumn(6).setPreferredWidth(100);
+        tabelaSolicitacoes.getColumnModel().getColumn(7).setPreferredWidth(70);
+        tabelaSolicitacoes.getColumnModel().getColumn(8).setPreferredWidth(90);
+        tabelaSolicitacoes.getColumnModel().getColumn(9).setPreferredWidth(150);
         
         // Configurar renderização de cores por tipo
         tabelaSolicitacoes.setDefaultRenderer(Object.class, new javax.swing.table.DefaultTableCellRenderer() {
@@ -351,11 +393,17 @@ public class TelaPrincipal extends JFrame {
             }
         });
         
-        // Adicionar clique duplo para editar
+        // Adicionar clique duplo para editar (com verificação de permissão)
         tabelaSolicitacoes.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
+                    if (!SessaoUtil.temPermissao(Permissao.EDITAR_SOLICITACAO)) {
+                        JOptionPane.showMessageDialog(TelaPrincipal.this,
+                            "Você não tem permissão para editar solicitações.",
+                            "Acesso Negado", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
                     int row = tabelaSolicitacoes.getSelectedRow();
                     if (row >= 0) {
                         Long id = (Long) modeloTabela.getValueAt(row, 0);
@@ -405,19 +453,25 @@ public class TelaPrincipal extends JFrame {
         JPanel painelBotoes = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         painelBotoes.setOpaque(false);
         
-        JButton btnNovo = criarBotao("➕ Novo", COR_PRIMARIA);
-        JButton btnEditar = criarBotao("✏️ Editar", new Color(52, 73, 94));
-        JButton btnExcluir = criarBotao("🗑️ Excluir", COR_PERIGO);
-        JButton btnAtualizar = criarBotao("🔄 Atualizar", new Color(149, 165, 166));
+        btnNovo = criarBotao("➕ Novo", COR_PRIMARIA);
+        btnEditar = criarBotao("✏️ Editar", new Color(52, 73, 94));
+        btnExcluir = criarBotao("🗑️ Excluir", COR_PERIGO);
+        btnImportar = criarBotao("📥 Importar", new Color(46, 204, 113));
+        btnExportar = criarBotao("📤 Exportar", new Color(155, 89, 182));
+        btnAtualizar = criarBotao("🔄 Atualizar", new Color(149, 165, 166));
         
         btnNovo.addActionListener(e -> novaSolicitacao());
         btnEditar.addActionListener(e -> editarSolicitacaoSelecionada());
         btnExcluir.addActionListener(e -> excluirSolicitacaoSelecionada());
+        btnImportar.addActionListener(e -> abrirImportacao());
+        btnExportar.addActionListener(e -> abrirExportacao());
         btnAtualizar.addActionListener(e -> carregarDados());
         
         painelBotoes.add(btnNovo);
         painelBotoes.add(btnEditar);
         painelBotoes.add(btnExcluir);
+        painelBotoes.add(btnImportar);
+        painelBotoes.add(btnExportar);
         painelBotoes.add(btnAtualizar);
         
         panel.add(painelTotalizadores, BorderLayout.WEST);
@@ -448,7 +502,6 @@ public class TelaPrincipal extends JFrame {
         btn.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         
-        // Efeito hover
         btn.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
@@ -500,9 +553,10 @@ public class TelaPrincipal extends JFrame {
             atualizarTotalizadores(lista);
             LOGGER.info("✅ Carregados {} registros", lista.size());
             
-            // Registrar consulta na auditoria
-            auditoriaService.registrarConsulta("SOLICITACAO", null, 
-                "Consulta geral: " + lista.size() + " registros");
+            if (SessaoUtil.temPermissao(Permissao.CONSULTAR_SOLICITACAO)) {
+                auditoriaService.registrarConsulta("SOLICITACAO", null, 
+                    "Consulta geral: " + lista.size() + " registros");
+            }
             
         } catch (SQLException e) {
             LOGGER.error("❌ Erro ao carregar dados", e);
@@ -517,7 +571,6 @@ public class TelaPrincipal extends JFrame {
      */
     private void atualizarTabela(List<Solicitacao> lista) {
         modeloTabela.setRowCount(0);
-        
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         
         for (Solicitacao s : lista) {
@@ -570,23 +623,15 @@ public class TelaPrincipal extends JFrame {
         RowFilter<DefaultTableModel, Object> filter = new RowFilter<>() {
             @Override
             public boolean include(Entry<? extends DefaultTableModel, ? extends Object> entry) {
-                // Filtrar por busca
                 if (!busca.isEmpty()) {
                     String valor = "";
                     int coluna = 0;
                     
                     switch (tipoFiltro) {
-                        case "Nome":
-                            coluna = 5;
-                            break;
-                        case "Matrícula":
-                            coluna = 3;
-                            break;
-                        case "CPF":
-                            coluna = 4;
-                            break;
+                        case "Nome": coluna = 5; break;
+                        case "Matrícula": coluna = 3; break;
+                        case "CPF": coluna = 4; break;
                         default:
-                            // Busca em todas as colunas
                             for (int i = 0; i < entry.getValueCount(); i++) {
                                 if (entry.getStringValue(i).toLowerCase().contains(busca.toLowerCase())) {
                                     return true;
@@ -601,7 +646,6 @@ public class TelaPrincipal extends JFrame {
                     }
                 }
                 
-                // Filtrar por mês
                 if (mes != null && !mes.equals("Todos")) {
                     String mesTabela = entry.getStringValue(2);
                     if (!mes.equals(mesTabela)) {
@@ -609,7 +653,6 @@ public class TelaPrincipal extends JFrame {
                     }
                 }
                 
-                // Filtrar por tipo
                 if (tipo != null && !tipo.equals("Todos")) {
                     String tipoTabela = entry.getStringValue(8);
                     if (!tipo.equals(tipoTabela)) {
@@ -636,27 +679,39 @@ public class TelaPrincipal extends JFrame {
     }
     
     /**
-     * Abre a tela de nova solicitação.
+     * Abre a tela de nova solicitação com verificação de permissão.
      */
     private void novaSolicitacao() {
-        TelaCadastro tela = new TelaCadastro(this);
-        tela.setVisible(true);
-        carregarDados();
-        auditoriaService.registrarCriacao("SOLICITACAO", null, "Nova solicitação criada");
+        try {
+            SessaoUtil.verificarPermissao(Permissao.CADASTRAR_SOLICITACAO);
+            TelaCadastro tela = new TelaCadastro(this);
+            tela.setVisible(true);
+            carregarDados();
+            auditoriaService.registrarCriacao("SOLICITACAO", null, "Nova solicitação criada");
+        } catch (SecurityException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Acesso Negado", 
+                JOptionPane.ERROR_MESSAGE);
+        }
     }
     
     /**
-     * Abre a tela de edição da solicitação selecionada.
+     * Abre a tela de edição da solicitação selecionada com verificação de permissão.
      */
     private void editarSolicitacaoSelecionada() {
-        int row = tabelaSolicitacoes.getSelectedRow();
-        if (row >= 0) {
-            Long id = (Long) modeloTabela.getValueAt(row, 0);
-            editarSolicitacao(id);
-        } else {
-            JOptionPane.showMessageDialog(this,
-                "Selecione uma solicitação para editar.",
-                "Aviso", JOptionPane.WARNING_MESSAGE);
+        try {
+            SessaoUtil.verificarPermissao(Permissao.EDITAR_SOLICITACAO);
+            int row = tabelaSolicitacoes.getSelectedRow();
+            if (row >= 0) {
+                Long id = (Long) modeloTabela.getValueAt(row, 0);
+                editarSolicitacao(id);
+            } else {
+                JOptionPane.showMessageDialog(this,
+                    "Selecione uma solicitação para editar.",
+                    "Aviso", JOptionPane.WARNING_MESSAGE);
+            }
+        } catch (SecurityException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Acesso Negado", 
+                JOptionPane.ERROR_MESSAGE);
         }
     }
     
@@ -665,6 +720,7 @@ public class TelaPrincipal extends JFrame {
      */
     private void editarSolicitacao(Long id) {
         try {
+            SessaoUtil.verificarPermissao(Permissao.EDITAR_SOLICITACAO);
             var optional = dao.buscarPorId(id);
             if (optional.isPresent()) {
                 TelaCadastro tela = new TelaCadastro(this, optional.get());
@@ -682,26 +738,30 @@ public class TelaPrincipal extends JFrame {
             JOptionPane.showMessageDialog(this,
                 "Erro ao carregar solicitação: " + e.getMessage(),
                 "Erro", JOptionPane.ERROR_MESSAGE);
+        } catch (SecurityException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Acesso Negado", 
+                JOptionPane.ERROR_MESSAGE);
         }
     }
     
     /**
-     * Exclui a solicitação selecionada.
+     * Exclui a solicitação selecionada com verificação de permissão.
      */
     private void excluirSolicitacaoSelecionada() {
-        int row = tabelaSolicitacoes.getSelectedRow();
-        if (row >= 0) {
-            Long id = (Long) modeloTabela.getValueAt(row, 0);
-            String nome = (String) modeloTabela.getValueAt(row, 5);
-            
-            int confirm = JOptionPane.showConfirmDialog(this,
-                "Deseja realmente excluir a solicitação de\n" + nome + " (ID: " + id + ")?",
-                "Confirmar Exclusão",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE);
-            
-            if (confirm == JOptionPane.YES_OPTION) {
-                try {
+        try {
+            SessaoUtil.verificarPermissao(Permissao.EXCLUIR_SOLICITACAO);
+            int row = tabelaSolicitacoes.getSelectedRow();
+            if (row >= 0) {
+                Long id = (Long) modeloTabela.getValueAt(row, 0);
+                String nome = (String) modeloTabela.getValueAt(row, 5);
+                
+                int confirm = JOptionPane.showConfirmDialog(this,
+                    "Deseja realmente excluir a solicitação de\n" + nome + " (ID: " + id + ")?",
+                    "Confirmar Exclusão",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+                
+                if (confirm == JOptionPane.YES_OPTION) {
                     if (dao.excluir(id)) {
                         auditoriaService.registrarExclusao("SOLICITACAO", id, 
                             "Solicitação excluída: " + nome);
@@ -714,52 +774,73 @@ public class TelaPrincipal extends JFrame {
                             "Erro ao excluir solicitação.",
                             "Erro", JOptionPane.ERROR_MESSAGE);
                     }
-                } catch (SQLException e) {
-                    LOGGER.error("Erro ao excluir solicitação", e);
-                    JOptionPane.showMessageDialog(this,
-                        "Erro ao excluir: " + e.getMessage(),
-                        "Erro", JOptionPane.ERROR_MESSAGE);
                 }
+            } else {
+                JOptionPane.showMessageDialog(this,
+                    "Selecione uma solicitação para excluir.",
+                    "Aviso", JOptionPane.WARNING_MESSAGE);
             }
-        } else {
+        } catch (SecurityException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Acesso Negado", 
+                JOptionPane.ERROR_MESSAGE);
+        } catch (SQLException e) {
+            LOGGER.error("Erro ao excluir solicitação", e);
             JOptionPane.showMessageDialog(this,
-                "Selecione uma solicitação para excluir.",
-                "Aviso", JOptionPane.WARNING_MESSAGE);
+                "Erro ao excluir: " + e.getMessage(),
+                "Erro", JOptionPane.ERROR_MESSAGE);
         }
     }
     
     /**
-     * Abre a tela de importação.
+     * Abre a tela de importação com verificação de permissão.
      */
     private void abrirImportacao() {
-        SwingUtilities.invokeLater(() -> {
-            TelaImportacao tela = new TelaImportacao(this);
-            tela.setVisible(true);
-            carregarDados();
-            auditoriaService.registrarImportacao("SOLICITACAO", "Importação de dados do Excel");
-        });
+        try {
+            SessaoUtil.verificarPermissao(Permissao.IMPORTAR_DADOS);
+            SwingUtilities.invokeLater(() -> {
+                TelaImportacao tela = new TelaImportacao(this);
+                tela.setVisible(true);
+                carregarDados();
+                auditoriaService.registrarImportacao("SOLICITACAO", "Importação de dados do Excel");
+            });
+        } catch (SecurityException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Acesso Negado", 
+                JOptionPane.ERROR_MESSAGE);
+        }
     }
     
     /**
-     * Abre a tela de exportação.
+     * Abre a tela de exportação com verificação de permissão.
      */
     private void abrirExportacao() {
-        SwingUtilities.invokeLater(() -> {
-            TelaExportacao tela = new TelaExportacao(this);
-            tela.setVisible(true);
-            auditoriaService.registrarExportacao("SOLICITACAO", "Exportação de dados para Excel");
-        });
+        try {
+            SessaoUtil.verificarPermissao(Permissao.EXPORTAR_DADOS);
+            SwingUtilities.invokeLater(() -> {
+                TelaExportacao tela = new TelaExportacao(this);
+                tela.setVisible(true);
+                auditoriaService.registrarExportacao("SOLICITACAO", "Exportação de dados para Excel");
+            });
+        } catch (SecurityException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Acesso Negado", 
+                JOptionPane.ERROR_MESSAGE);
+        }
     }
     
     /**
-     * Abre o relatório mensal.
+     * Abre o relatório mensal com verificação de permissão.
      */
     private void abrirRelatorioMensal() {
-        SwingUtilities.invokeLater(() -> {
-            TelaRelatorio tela = new TelaRelatorio();
-            tela.setVisible(true);
-            auditoriaService.registrarConsulta("RELATORIO", null, "Relatório mensal acessado");
-        });
+        try {
+            SessaoUtil.verificarPermissao(Permissao.GERAR_RELATORIOS);
+            SwingUtilities.invokeLater(() -> {
+                TelaRelatorio tela = new TelaRelatorio();
+                tela.setVisible(true);
+                auditoriaService.registrarConsulta("RELATORIO", null, "Relatório mensal acessado");
+            });
+        } catch (SecurityException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Acesso Negado", 
+                JOptionPane.ERROR_MESSAGE);
+        }
     }
     
     /**
@@ -770,20 +851,40 @@ public class TelaPrincipal extends JFrame {
     }
     
     /**
-     * Mostra informações do usuário logado.
+     * Abre a tela de auditoria com verificação de permissão.
+     */
+    private void abrirAuditoria() {
+        try {
+            SessaoUtil.verificarPermissao(Permissao.VER_AUDITORIA);
+            SwingUtilities.invokeLater(() -> {
+                TelaAuditoria tela = new TelaAuditoria(this);
+                tela.setVisible(true);
+            });
+        } catch (SecurityException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Acesso Negado", 
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    /**
+     * Mostra informações do usuário logado com permissões.
      */
     private void mostrarInfoUsuario() {
         var usuario = SessaoUtil.getUsuarioLogado();
         if (usuario != null) {
+            String permissoes = usuario.getPermissoes().stream()
+                .map(Permissao::getDescricao)
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("Nenhuma");
+            
             JOptionPane.showMessageDialog(this,
                 "👤 Informações do Usuário\n\n" +
                 "Nome: " + usuario.getNome() + "\n" +
                 "Login: " + usuario.getLogin() + "\n" +
                 "Email: " + (usuario.getEmail() != null ? usuario.getEmail() : "Não informado") + "\n" +
                 "Perfil: " + usuario.getPerfil().getDescricao() + "\n" +
-                "Último Acesso: " + (usuario.getUltimoAcesso() != null ? 
-                    usuario.getUltimoAcesso().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : 
-                    "Primeiro acesso"),
+                "Permissões: " + permissoes + "\n" +
+                "Tempo restante: " + SessaoUtil.getTempoRestanteSessaoMinutos() + " minutos",
                 "Informações do Usuário",
                 JOptionPane.INFORMATION_MESSAGE);
         }
@@ -835,6 +936,7 @@ public class TelaPrincipal extends JFrame {
             "✏️ Editar: Duplo clique na linha\n" +
             "🗑️ Excluir: Selecione e clique em excluir\n" +
             "📊 Relatórios: Menu Relatórios\n" +
+            "🔍 Auditoria: Menu Auditoria (ADMIN/GERENTE)\n" +
             "👤 Usuário: Menu Usuário para informações e logout",
             "Manual", JOptionPane.INFORMATION_MESSAGE);
     }

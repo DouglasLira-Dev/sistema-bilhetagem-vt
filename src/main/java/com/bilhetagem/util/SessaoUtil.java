@@ -2,6 +2,7 @@ package com.bilhetagem.util;
 
 import com.bilhetagem.model.Usuario;
 import com.bilhetagem.model.Usuario.Perfil;
+import com.bilhetagem.model.Usuario.Permissao;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -10,7 +11,7 @@ import org.apache.logging.log4j.Logger;
  * 
  * @author [Seu Nome]
  * @version 1.0.0
- * @since 2026-01-08
+ * @since 2026-01-09
  */
 public class SessaoUtil {
     
@@ -18,6 +19,7 @@ public class SessaoUtil {
     
     private static Usuario usuarioLogado;
     private static long tempoInicioSessao;
+    private static final long TEMPO_MAXIMO_SESSAO = 8 * 60 * 60 * 1000; // 8 horas
     
     /**
      * Inicia uma nova sessão para o usuário.
@@ -25,7 +27,8 @@ public class SessaoUtil {
     public static void iniciarSessao(Usuario usuario) {
         usuarioLogado = usuario;
         tempoInicioSessao = System.currentTimeMillis();
-        LOGGER.info("🟢 Sessão iniciada para: {}", usuario.getLogin());
+        LOGGER.info("🟢 Sessão iniciada para: {} (Perfil: {})", 
+                   usuario.getLogin(), usuario.getPerfil());
     }
     
     /**
@@ -61,24 +64,63 @@ public class SessaoUtil {
     }
     
     /**
-     * Verifica se o usuário tem permissão para uma ação.
+     * Verifica se o usuário tem uma permissão específica.
+     * Lança exceção se não tiver permissão.
      */
-    public static boolean temPermissao(Usuario.Permissao permissao) {
+    public static void verificarPermissao(Permissao permissao) {
+        if (!temPermissao(permissao)) {
+            throw new SecurityException(
+                "Usuário não tem permissão para: " + permissao.getDescricao()
+            );
+        }
+    }
+    
+    /**
+     * Verifica se o usuário tem permissão para uma ação.
+     * Retorna true/false (sem lançar exceção).
+     */
+    public static boolean temPermissao(Permissao permissao) {
         if (usuarioLogado == null) {
+            LOGGER.warn("⚠️ Tentativa de verificar permissão sem usuário logado");
             return false;
         }
         return usuarioLogado.temPermissao(permissao);
     }
     
     /**
-     * Verifica se a sessão expirou (8 horas).
+     * Verifica se o usuário tem todas as permissões.
+     */
+    public static boolean temTodasPermissoes(Permissao... permissoes) {
+        if (usuarioLogado == null) return false;
+        return usuarioLogado.temTodasPermissoes(permissoes);
+    }
+    
+    /**
+     * Verifica se o usuário tem pelo menos uma permissão.
+     */
+    public static boolean temAlgumaPermissao(Permissao... permissoes) {
+        if (usuarioLogado == null) return false;
+        return usuarioLogado.temAlgumaPermissao(permissoes);
+    }
+    
+    /**
+     * Verifica se a sessão expirou.
      */
     public static boolean sessaoExpirada() {
         if (usuarioLogado == null) {
             return true;
         }
         long tempoSessao = System.currentTimeMillis() - tempoInicioSessao;
-        long tempoMaximo = 8 * 60 * 60 * 1000; // 8 horas
-        return tempoSessao > tempoMaximo;
+        return tempoSessao > TEMPO_MAXIMO_SESSAO;
+    }
+    
+    /**
+     * Obtém o tempo restante de sessão em minutos.
+     */
+    public static long getTempoRestanteSessaoMinutos() {
+        if (usuarioLogado == null) return 0;
+        long tempoSessao = System.currentTimeMillis() - tempoInicioSessao;
+        long restante = TEMPO_MAXIMO_SESSAO - tempoSessao;
+        return Math.max(0, restante / 1000 / 60);
     }
 }
