@@ -15,6 +15,7 @@ public interface UsuarioDAO {
     Optional<Usuario> buscarPorLogin(String login) throws SQLException;
     List<Usuario> listarTodos() throws SQLException;
     boolean atualizar(Usuario usuario) throws SQLException;
+    boolean atualizarSenha(Long id, String novaSenha) throws SQLException;
     boolean excluir(Long id) throws SQLException;
     boolean autenticar(String login, String senha) throws SQLException;
     void atualizarUltimoAcesso(String login) throws SQLException;

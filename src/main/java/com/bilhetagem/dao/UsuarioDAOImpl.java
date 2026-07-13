@@ -2,6 +2,7 @@ package com.bilhetagem.dao;
 
 import com.bilhetagem.model.Usuario;
 import com.bilhetagem.model.Usuario.Perfil;
+import com.bilhetagem.util.CriptografiaUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -12,7 +13,11 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Implementação do DAO de usuários com SQLite.
+ * Implementação do DAO de usuários com SQLite e segurança.
+ * 
+ * @author [Seu Nome]
+ * @version 1.0.0
+ * @since 2026-01-09
  */
 public class UsuarioDAOImpl implements UsuarioDAO {
     
@@ -25,7 +30,7 @@ public class UsuarioDAOImpl implements UsuarioDAO {
     
     private static final String SQL_SELECT_BY_ID = "SELECT * FROM usuarios WHERE id = ?";
     private static final String SQL_SELECT_BY_LOGIN = "SELECT * FROM usuarios WHERE login = ?";
-    private static final String SQL_SELECT_ALL = "SELECT * FROM usuarios ORDER BY nome";
+    private static final String SQL_SELECT_ALL = "SELECT * FROM usuarios WHERE ativo = 1 ORDER BY nome";
     private static final String SQL_UPDATE = """
         UPDATE usuarios SET
             login = ?,
@@ -36,15 +41,24 @@ public class UsuarioDAOImpl implements UsuarioDAO {
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
     """;
+    private static final String SQL_UPDATE_SENHA = """
+        UPDATE usuarios SET senha = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+    """;
     private static final String SQL_DELETE = "UPDATE usuarios SET ativo = 0 WHERE id = ?";
     private static final String SQL_UPDATE_ULTIMO_ACESSO = 
         "UPDATE usuarios SET ultimo_acesso = CURRENT_TIMESTAMP WHERE login = ?";
     private static final String SQL_AUTENTICAR = 
-        "SELECT * FROM usuarios WHERE login = ? AND senha = ? AND ativo = 1";
+        "SELECT * FROM usuarios WHERE login = ? AND ativo = 1";
+    private static final String SQL_MIGRAR_SENHA = 
+        "UPDATE usuarios SET senha = ? WHERE id = ?";
     
     @Override
     public Usuario salvar(Usuario usuario) throws SQLException {
         LOGGER.debug("Salvando usuário: {}", usuario.getLogin());
+        
+        // Hashear a senha antes de salvar
+        String senhaHash = CriptografiaUtil.hashSenha(usuario.getSenha());
+        usuario.setSenha(senhaHash);
         
         try (Connection conn = ConexaoBD.getInstance();
              PreparedStatement stmt = conn.prepareStatement(SQL_INSERT, Statement.RETURN_GENERATED_KEYS)) {
@@ -113,7 +127,7 @@ public class UsuarioDAOImpl implements UsuarioDAO {
     
     @Override
     public List<Usuario> listarTodos() throws SQLException {
-        LOGGER.debug("Listando todos os usuários");
+        LOGGER.debug("Listando todos os usuários ativos");
         
         List<Usuario> usuarios = new ArrayList<>();
         
@@ -150,6 +164,22 @@ public class UsuarioDAOImpl implements UsuarioDAO {
     }
     
     @Override
+    public boolean atualizarSenha(Long id, String novaSenha) throws SQLException {
+        LOGGER.debug("Atualizando senha do usuário ID: {}", id);
+        
+        String senhaHash = CriptografiaUtil.hashSenha(novaSenha);
+        
+        try (Connection conn = ConexaoBD.getInstance();
+             PreparedStatement stmt = conn.prepareStatement(SQL_UPDATE_SENHA)) {
+            
+            stmt.setString(1, senhaHash);
+            stmt.setLong(2, id);
+            
+            return stmt.executeUpdate() > 0;
+        }
+    }
+    
+    @Override
     public boolean excluir(Long id) throws SQLException {
         LOGGER.debug("Desativando usuário ID: {}", id);
         
@@ -169,12 +199,29 @@ public class UsuarioDAOImpl implements UsuarioDAO {
              PreparedStatement stmt = conn.prepareStatement(SQL_AUTENTICAR)) {
             
             stmt.setString(1, login);
-            stmt.setString(2, senha);
             
             try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next();
+                if (rs.next()) {
+                    String senhaHash = rs.getString("senha");
+                    
+                    // Verificar se a senha está em texto puro (migração)
+                    if (!CriptografiaUtil.isHashValido(senhaHash)) {
+                        // Migrar para hash
+                        String novoHash = CriptografiaUtil.hashSenha(senha);
+                        if (senha.equals(senhaHash)) {
+                            migrarSenha(rs.getLong("id"), senha);
+                            return true;
+                        }
+                        return false;
+                    }
+                    
+                    // Verificar hash BCrypt
+                    return CriptografiaUtil.verificarSenha(senha, senhaHash);
+                }
             }
         }
+        
+        return false;
     }
     
     @Override
@@ -190,13 +237,32 @@ public class UsuarioDAOImpl implements UsuarioDAO {
     }
     
     /**
+     * Migra uma senha em texto puro para hash BCrypt.
+     */
+    private void migrarSenha(Long id, String senha) throws SQLException {
+        LOGGER.info("🔄 Migrando senha do usuário ID: {}", id);
+        
+        String senhaHash = CriptografiaUtil.hashSenha(senha);
+        
+        try (Connection conn = ConexaoBD.getInstance();
+             PreparedStatement stmt = conn.prepareStatement(SQL_MIGRAR_SENHA)) {
+            
+            stmt.setString(1, senhaHash);
+            stmt.setLong(2, id);
+            stmt.executeUpdate();
+            
+            LOGGER.info("✅ Senha migrada com sucesso para ID: {}", id);
+        }
+    }
+    
+    /**
      * Mapeia um ResultSet para um objeto Usuario.
      */
     private Usuario mapearResultSet(ResultSet rs) throws SQLException {
         Usuario usuario = new Usuario();
         usuario.setId(rs.getLong("id"));
         usuario.setLogin(rs.getString("login"));
-        usuario.setSenha(rs.getString("senha"));
+        usuario.setSenha(rs.getString("senha")); // Hash armazenado
         usuario.setNome(rs.getString("nome"));
         usuario.setEmail(rs.getString("email"));
         usuario.setPerfil(Perfil.valueOf(rs.getString("perfil")));

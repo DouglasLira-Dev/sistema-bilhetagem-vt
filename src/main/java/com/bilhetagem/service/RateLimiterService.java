@@ -77,6 +77,13 @@ public class RateLimiterService {
         long remaining = (blockEnd - System.currentTimeMillis()) / 1000 / 60;
         return Math.max(0, remaining);
     }
+
+    /**
+     * Obtém o número de tentativas para um login.
+     */
+    public int getAttemptCount(String login) {
+        return attempts.getOrDefault(login, 0);
+    }
     
     /**
      * Reseta as tentativas de um login (após login bem-sucedido).

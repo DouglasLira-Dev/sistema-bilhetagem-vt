@@ -26,7 +26,7 @@ import java.util.List;
  * contendo a tabela de solicitações, filtros de busca, totalizadores
  * e botões de ação.</p>
  * 
- * @author [Seu Nome]
+ * @author Equipe de Desenvolvimento
  * @version 1.0.0
  * @since 2026-01-08
  */
