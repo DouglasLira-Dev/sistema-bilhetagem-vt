@@ -18,7 +18,7 @@ import java.sql.SQLException;
  * <p>Responsável por registrar todas as ações dos usuários
  * no sistema para fins de auditoria e compliance.</p>
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-08
  */

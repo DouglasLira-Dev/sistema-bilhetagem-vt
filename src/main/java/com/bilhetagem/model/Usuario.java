@@ -11,7 +11,7 @@ import java.util.Set;
  * <p>Contém informações de autenticação, perfil e permissões
  * para controle de acesso ao sistema.</p>
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-09
  */

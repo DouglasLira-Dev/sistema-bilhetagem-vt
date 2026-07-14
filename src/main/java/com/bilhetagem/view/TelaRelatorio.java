@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
  * <p>Esta classe implementa a visualização de dados com gráficos
  * de barras e pizza, além de tabelas consolidadas por mês.</p>
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-08
  */

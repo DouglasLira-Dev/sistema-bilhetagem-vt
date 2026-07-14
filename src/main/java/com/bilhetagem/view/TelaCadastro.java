@@ -22,7 +22,7 @@ import java.time.format.DateTimeParseException;
  * <p>Esta classe implementa o formulário para criar ou editar
  * uma solicitação de vale transporte.</p>
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-08
  */

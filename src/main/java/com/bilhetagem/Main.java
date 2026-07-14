@@ -23,7 +23,7 @@ import javax.swing.*;
  * </ul>
  * </p>
  * 
- * @author [Seu Nome]
+ * @author equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-08
  */

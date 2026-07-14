@@ -15,7 +15,7 @@ import java.util.Optional;
 /**
  * Implementação concreta do DAO para solicitações usando SQLite com Soft Delete.
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-08
  */

@@ -18,7 +18,7 @@ import java.nio.file.Paths;
  * <p>O banco de dados é criado automaticamente no diretório 'data/' 
  * caso não exista, com o nome 'bilhetagem.db'.</p>
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-08
  */

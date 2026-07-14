@@ -9,7 +9,7 @@ import org.apache.logging.log4j.Logger;
 /**
  * Utilitário para gerenciamento de sessão do usuário.
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-09
  */

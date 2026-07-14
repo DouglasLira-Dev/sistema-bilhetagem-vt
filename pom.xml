@@ -12,7 +12,7 @@
 
     <name>Sistema de Bilhetagem VT</name>
     <description>Sistema para gerenciamento de solicitações de vale transporte</description>
-    <url>https://github.com/[seu-usuario]/sistema-bilhetagem-vt</url>
+    <url>https://github.com/DouglasLira-Dev/sistema-bilhetagem-vt</url>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

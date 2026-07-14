@@ -18,7 +18,7 @@ import java.util.List;
 /**
  * Tela de consulta de auditoria.
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-09
  */

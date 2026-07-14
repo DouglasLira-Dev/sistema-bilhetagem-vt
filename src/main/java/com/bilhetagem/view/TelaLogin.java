@@ -16,7 +16,7 @@ import java.sql.SQLException;
 /**
  * Tela de login do sistema com segurança.
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-09
  */

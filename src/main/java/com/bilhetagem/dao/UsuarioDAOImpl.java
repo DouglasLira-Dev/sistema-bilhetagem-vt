@@ -15,7 +15,7 @@ import java.util.Optional;
 /**
  * Implementação do DAO de usuários com SQLite e segurança.
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-09
  */

@@ -7,6 +7,8 @@ import java.util.Optional;
 
 /**
  * Interface para operações de acesso a dados de usuários.
+ * @author Equipe de desenvolvimento
+ * @version 1.0.0
  */
 public interface UsuarioDAO {
     

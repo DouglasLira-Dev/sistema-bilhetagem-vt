@@ -22,7 +22,7 @@ import java.util.List;
  * <p>Responsável por ler e escrever arquivos Excel (.xlsx e .xls),
  * mapeando os dados para objetos do sistema.</p>
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-08
  */

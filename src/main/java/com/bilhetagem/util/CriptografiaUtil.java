@@ -9,7 +9,7 @@ import org.apache.logging.log4j.Logger;
  * 
  * <p>Utiliza BCrypt para hash de senhas com salt automático.</p>
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-09
  */

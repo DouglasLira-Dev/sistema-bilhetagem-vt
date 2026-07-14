@@ -14,7 +14,7 @@ import java.sql.SQLException;
 /**
  * Utilitário para migrar senhas existentes para hash BCrypt.
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-09
  */

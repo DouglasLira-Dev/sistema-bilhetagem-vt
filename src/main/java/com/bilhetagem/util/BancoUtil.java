@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
  * <p>Responsável por inicializar a estrutura do banco de dados,
  * executar scripts SQL e verificar integridade.</p>
  * 
- * @author [Seu Nome]
+ * @author Equipe de desenvolvimento
  * @version 1.0.0
  * @since 2026-01-08
  */
