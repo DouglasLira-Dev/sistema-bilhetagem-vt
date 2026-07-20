@@ -60,6 +60,6 @@ public class CriptografiaUtil {
      * Verifica se um hash é válido (formato BCrypt).
      */
     public static boolean isHashValido(String hash) {
-        return hash != null && hash.startsWith("$2a$") || hash.startsWith("$2b$");
+        return hash != null && (hash.startsWith("$2a$") || hash.startsWith("$2b$"));
     }
 }
