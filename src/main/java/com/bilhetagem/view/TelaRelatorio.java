@@ -158,8 +158,6 @@ public class TelaRelatorio extends JFrame {
         cbAnoFim = new JComboBox<>();
         cbMesFim.addActionListener(e -> atualizarRelatorio());
         cbAnoFim.addActionListener(e -> atualizarRelatorio());
-
-        carregarAnos();
         
         JButton btnAtualizar = new JButton("🔄 Atualizar");
         btnAtualizar.setBackground(COR_PRIMARIA);
@@ -410,6 +408,8 @@ public class TelaRelatorio extends JFrame {
      * Atualiza todos os componentes do relatório.
      */
     private void atualizarRelatorio() {
+        if (panelGraficoBarras == null || panelGraficoPizza == null || modeloTabela == null) { return; }
+        
         Integer chaveInicio = calcularChavePeriodo(
             (String) cbMesInicio.getSelectedItem(), (String) cbAnoInicio.getSelectedItem(), true);
         Integer chaveFim = calcularChavePeriodo(
