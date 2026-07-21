@@ -173,13 +173,13 @@ public class TelaRelatorio extends JFrame {
         btnExportar.setFont(new Font("Arial", Font.BOLD, 12));
         btnExportar.addActionListener(e -> exportarRelatorio());
         
-        painelFiltros.add(lblPeriodo);
-        painelFiltros.add(lblDe);
-        painelFiltros.add(cbMesInicio);
-        painelFiltros.add(cbAnoInicio);
-        painelFiltros.add(lblAte);
-        painelFiltros.add(cbMesFim);
-        painelFiltros.add(cbAnoFim);
+        panelFiltros.add(lblPeriodo);
+        panelFiltros.add(lblDe);
+        panelFiltros.add(cbMesInicio);
+        panelFiltros.add(cbAnoInicio);
+        panelFiltros.add(lblAte);
+        panelFiltros.add(cbMesFim);
+        panelFiltros.add(cbAnoFim);
         panelFiltros.add(btnAtualizar);
         panelFiltros.add(btnExportar);
         
