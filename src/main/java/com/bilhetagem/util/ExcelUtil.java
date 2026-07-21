@@ -332,7 +332,7 @@ public class ExcelUtil {
             String cpf = obterValorCelula(row, COL_CPF);
             if (cpf != null && !cpf.trim().isEmpty()) {
                 String cpfLimpo = cpf.trim().replaceAll("[^0-9]", "");
-                if (cpfLimpo.length() == 10) {
+                if (cpfLimpo.length() < 11) {
                     cpfLimpo = "0" + cpfLimpo; // Adiciona zero à esquerda se necessário 
                 }
 
