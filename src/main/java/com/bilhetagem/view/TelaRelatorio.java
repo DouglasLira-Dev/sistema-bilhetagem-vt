@@ -47,9 +47,20 @@ public class TelaRelatorio extends JFrame {
     private static final Logger LOGGER = LogManager.getLogger(TelaRelatorio.class);
     
     // ===== COMPONENTES =====
-    private JComboBox<String> cbMesReferencia;
+    private JComboBox<String> cbMesInicio;
+    private JComboBox<String> cbAnoInicio;
+    private JComboBox<String> cbMesFim;
+    private JComboBox<String> cbAnoFim;
+
+    private static final String[] NOMES_MESES = {
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    };
+
     private JTable tabelaResumo;
+
     private DefaultTableModel modeloTabela;
+
     private JPanel panelGraficoBarras;
     private JPanel panelGraficoPizza;
     private JLabel lblTotalPeriodo;
@@ -134,13 +145,21 @@ public class TelaRelatorio extends JFrame {
         JPanel panelFiltros = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
         panelFiltros.setOpaque(false);
         
-        JLabel lblMes = new JLabel("📅 Mês de Referência:");
-        lblMes.setFont(new Font("Arial", Font.BOLD, 13));
-        
-        cbMesReferencia = new JComboBox<>();
-        cbMesReferencia.addItem("Todos os Meses");
-        cbMesReferencia.setPreferredSize(new Dimension(150, 30));
-        cbMesReferencia.addActionListener(e -> atualizarRelatorio());
+        JLabel lblPeriodo = new JLabel("📅 Período:");
+        JLabel lblDe = new JLabel("De:");
+
+        cbMesInicio = new JComboBox<>(criarItensMeses());
+        cbAnoInicio = new JComboBox<>();
+        cbMesInicio.addActionListener(e -> atualizarRelatorio());
+        cbAnoInicio.addActionListener(e -> atualizarRelatorio());
+
+        JLabel lblAte = new JLabel("Até (opcional):");
+        cbMesFim = new JComboBox<>(criarItensMeses());
+        cbAnoFim = new JComboBox<>();
+        cbMesFim.addActionListener(e -> atualizarRelatorio());
+        cbAnoFim.addActionListener(e -> atualizarRelatorio());
+
+        carregarAnos();
         
         JButton btnAtualizar = new JButton("🔄 Atualizar");
         btnAtualizar.setBackground(COR_PRIMARIA);
@@ -154,8 +173,13 @@ public class TelaRelatorio extends JFrame {
         btnExportar.setFont(new Font("Arial", Font.BOLD, 12));
         btnExportar.addActionListener(e -> exportarRelatorio());
         
-        panelFiltros.add(lblMes);
-        panelFiltros.add(cbMesReferencia);
+        painelFiltros.add(lblPeriodo);
+        painelFiltros.add(lblDe);
+        painelFiltros.add(cbMesInicio);
+        painelFiltros.add(cbAnoInicio);
+        painelFiltros.add(lblAte);
+        painelFiltros.add(cbMesFim);
+        painelFiltros.add(cbAnoFim);
         panelFiltros.add(btnAtualizar);
         panelFiltros.add(btnExportar);
         
@@ -280,8 +304,8 @@ public class TelaRelatorio extends JFrame {
             LOGGER.info("🔄 Carregando dados para relatórios...");
             todasSolicitacoes = dao.listarTodos();
             
-            // Carregar meses no combo
-            carregarMeses();
+            // Carregar anos no combo
+            carregarAnos();
             
             // Consolidar dados
             consolidarDados();
@@ -298,20 +322,68 @@ public class TelaRelatorio extends JFrame {
         }
     }
     
-    /**
-     * Carrega os meses no combo box.
-     */
-    private void carregarMeses() {
-        Set<String> meses = todasSolicitacoes.stream()
-            .map(Solicitacao::getMesReferencia)
-            .filter(mes -> mes != null && !mes.isEmpty())
-            .sorted(Collections.reverseOrder())
-            .collect(Collectors.toCollection(LinkedHashSet::new));
-        
-        cbMesReferencia.removeAllItems();
-        cbMesReferencia.addItem("Todos os Meses");
-        for (String mes : meses) {
-            cbMesReferencia.addItem(mes);
+    private String[] criarItensMeses() {
+        String[] itens = new String[NOMES_MESES.length + 1];
+        itens[0] = "";
+        for (int i = 0; i < NOMES_MESES.length; i++) {
+            itens[i + 1] = String.format("%02d - %s", i + 1, NOMES_MESES[i]);
+        }
+        return itens;
+    }
+
+    private void carregarAnos() {
+        java.util.Set<String> anos = new java.util.TreeSet<>();
+        try {
+            List<Solicitacao> lista = dao.listarTodos();
+            for (Solicitacao s : lista) {
+                String mes = s.getMesReferencia();
+                if (mes != null && mes.contains("/")) {
+                    String[] partes = mes.split("/");
+                    if (partes.length == 2) anos.add(partes[1]);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.error("Erro ao carregar anos", e);
+        }
+
+        Object anoInicioSel = cbAnoInicio != null ? cbAnoInicio.getSelectedItem() : null;
+        Object anoFimSel = cbAnoFim != null ? cbAnoFim.getSelectedItem() : null;
+
+        cbAnoInicio.removeAllItems();
+        cbAnoFim.removeAllItems();
+        cbAnoInicio.addItem("");
+        cbAnoFim.addItem("");
+
+        for (String ano : anos) {
+            cbAnoInicio.addItem(ano);
+            cbAnoFim.addItem(ano);
+        }
+        if (anoInicioSel != null) cbAnoInicio.setSelectedItem(anoInicioSel);
+        if (anoFimSel != null) cbAnoFim.setSelectedItem(anoFimSel);
+    }
+
+    private Integer extrairNumeroMes(String itemCombo) {
+        if (itemCombo == null || itemCombo.isEmpty()) return null;
+        return Integer.parseInt(itemCombo.substring(0, 2));
+    }
+
+    private Integer calcularChavePeriodo(String itemMes, String itemAno, boolean limiteInicial) {
+        if (itemAno == null || itemAno.isEmpty()) return null;
+        int ano = Integer.parseInt(itemAno);
+        Integer mes = extrairNumeroMes(itemMes);
+        if (mes == null) mes = limiteInicial ? 1 : 12;
+        return ano * 100 + mes;
+    }
+
+    private Integer chaveDoMesReferencia(String mesReferencia) {
+        if (mesReferencia == null || !mesReferencia.contains("/")) return null;
+        try {
+            String[] partes = mesReferencia.split("/");
+            int mes = Integer.parseInt(partes[0]);
+            int ano = Integer.parseInt(partes[1]);
+            return ano * 100 + mes;
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
     
@@ -338,31 +410,36 @@ public class TelaRelatorio extends JFrame {
      * Atualiza todos os componentes do relatório.
      */
     private void atualizarRelatorio() {
-        String mesSelecionado = (String) cbMesReferencia.getSelectedItem();
-        
-        // Filtrar dados
-        List<Solicitacao> filtradas = filtrarPorMes(mesSelecionado);
-        
-        // Atualizar totalizadores
+        Integer chaveInicio = calcularChavePeriodo(
+            (String) cbMesInicio.getSelectedItem(), (String) cbAnoInicio.getSelectedItem(), true);
+        Integer chaveFim = calcularChavePeriodo(
+            (String) cbMesFim.getSelectedItem(), (String) cbAnoFim.getSelectedItem(), false);
+
+        List<Solicitacao> filtradas = filtrarPorPeriodo(chaveInicio, chaveFim);
+
+        // Atualiza totalizadores, gráficos e tabela
         atualizarTotalizadores(filtradas);
-        
-        // Atualizar gráficos
+        // Atualiza gráficos e tabela com base nas solicitações filtradas
         atualizarGraficos(filtradas);
-        
-        // Atualizar tabela resumo
-        atualizarTabela(mesSelecionado);
+        // Atualiza a tabela de resumo com base no período selecionado
+        atualizarTabela(chaveInicio, chaveFim);
     }
     
     /**
-     * Filtra as solicitações por mês.
+     * Filtra as solicitações por período.
      */
-    private List<Solicitacao> filtrarPorMes(String mesSelecionado) {
-        if (mesSelecionado == null || mesSelecionado.equals("Todos os Meses")) {
-            return new ArrayList<>(todasSolicitacoes);
-        }
-        
+        private List<Solicitacao> filtrarPorPeriodo(Integer chaveInicio, Integer chaveFim) {
+            if (chaveInicio == null && chaveFim == null) {
+                return new ArrayList<>(todasSolicitacoes);
+            }
         return todasSolicitacoes.stream()
-            .filter(s -> mesSelecionado.equals(s.getMesReferencia()))
+            .filter(s -> {
+                Integer chave = chaveDoMesReferencia(s.getMesReferencia());
+                if (chave == null) return false;
+                if (chaveInicio != null && chave < chaveInicio) return false;
+                if (chaveFim != null && chave > chaveFim) return false;
+                return true;
+            })
             .collect(Collectors.toList());
     }
     
@@ -480,26 +557,24 @@ public class TelaRelatorio extends JFrame {
     /**
      * Atualiza a tabela de resumo.
      */
-    private void atualizarTabela(String mesSelecionado) {
+        private void atualizarTabela(Integer chaveInicio, Integer chaveFim) {
         modeloTabela.setRowCount(0);
-        
-        // Ordenar meses
         Set<String> meses = dadosConsolidados.keySet().stream()
             .sorted(Collections.reverseOrder())
             .collect(Collectors.toCollection(LinkedHashSet::new));
-        
+
         for (String mes : meses) {
-            // Se tem filtro de mês, mostrar apenas o selecionado
-            if (!mesSelecionado.equals("Todos os Meses") && !mes.equals(mesSelecionado)) {
-                continue;
-            }
-            
+            Integer chaveMes = chaveDoMesReferencia(mes);
+            if (chaveMes == null) continue;
+            if (chaveInicio != null && chaveMes < chaveInicio) continue;
+            if (chaveFim != null && chaveMes > chaveFim) continue;
+
             Map<String, Long> tipos = dadosConsolidados.get(mes);
             long adesoes = tipos.getOrDefault("Adesão", 0L);
             long renuncias = tipos.getOrDefault("Renúncia", 0L);
             long alteracoes = tipos.getOrDefault("Alteração", 0L);
             long total = adesoes + renuncias + alteracoes;
-            
+
             Object[] row = {mes, adesoes, renuncias, alteracoes, total};
             modeloTabela.addRow(row);
         }
@@ -516,19 +591,27 @@ public class TelaRelatorio extends JFrame {
             return;
         }
         
-        String mesSelecionado = (String) cbMesReferencia.getSelectedItem();
+        Integer chaveInicio = calcularChavePeriodo(
+            (String) cbMesInicio.getSelectedItem(), (String) cbAnoInicio.getSelectedItem(), true);
+        Integer chaveFim = calcularChavePeriodo(
+            (String) cbMesFim.getSelectedItem(), (String) cbAnoFim.getSelectedItem(), false);
+
         Map<String, Map<String, Long>> dadosParaExportar = dadosConsolidados;
-        
-        if (mesSelecionado != null && !mesSelecionado.equals("Todos os Meses")) {
+
+        if (chaveInicio != null || chaveFim != null) {
             dadosParaExportar = new LinkedHashMap<>();
-            if (dadosConsolidados.containsKey(mesSelecionado)) {
-                dadosParaExportar.put(mesSelecionado, dadosConsolidados.get(mesSelecionado));
+            for (Map.Entry<String, Map<String, Long>> entry : dadosConsolidados.entrySet()) {
+                Integer chaveMes = chaveDoMesReferencia(entry.getKey());
+                if (chaveMes == null) continue;
+                if (chaveInicio != null && chaveMes < chaveInicio) continue;
+                if (chaveFim != null && chaveMes > chaveFim) continue;
+                dadosParaExportar.put(entry.getKey(), entry.getValue());
             }
         }
-        
+
         if (dadosParaExportar.isEmpty()) {
             JOptionPane.showMessageDialog(this,
-                "Não há dados para o mês selecionado.",
+                "Não há dados para o período selecionado.",
                 "Aviso", JOptionPane.WARNING_MESSAGE);
             return;
         }

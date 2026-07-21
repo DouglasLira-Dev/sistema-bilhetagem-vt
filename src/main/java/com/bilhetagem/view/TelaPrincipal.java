@@ -42,8 +42,17 @@ public class TelaPrincipal extends JFrame {
     // Campos de busca
     private JTextField txtBusca;
     private JComboBox<String> cbTipoFiltro;
-    private JComboBox<String> cbMesReferencia;
+    private JComboBox<String> cbMesInicio;
+    private JComboBox<String> cbAnoInicio;
+    private JComboBox<String> cbMesFim;
+    private JComboBox<String> cbAnoFim;
     private JComboBox<String> cbTipoSolicitacao;
+
+    private static final String[] NOMES_MESES = {
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+};
+
     
     // Labels de totalizadores
     private JLabel lblTotalRegistros;
@@ -314,13 +323,20 @@ public class TelaPrincipal extends JFrame {
         JPanel painelFiltros = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         painelFiltros.setOpaque(false);
         
-        JLabel lblMes = new JLabel("📅 Mês:");
-        lblMes.setFont(new Font("Arial", Font.BOLD, 12));
-        
-        cbMesReferencia = new JComboBox<>();
-        cbMesReferencia.addItem("Todos");
-        carregarMeses();
-        cbMesReferencia.addActionListener(e -> aplicarFiltros());
+        JLabel lblPeriodo = new JLabel("📅 Período:");
+        JLabel lblDe = new JLabel("De:");
+        cbMesInicio = new JComboBox<>(criarItensMeses());
+        cbAnoInicio = new JComboBox<>();
+        cbMesInicio.addActionListener(e -> aplicarFiltros());
+        cbAnoInicio.addActionListener(e -> aplicarFiltros());
+
+        JLabel lblAte = new JLabel("Até (opcional):");
+        cbMesFim = new JComboBox<>(criarItensMeses());
+        cbAnoFim = new JComboBox<>();
+        cbMesFim.addActionListener(e -> aplicarFiltros());
+        cbAnoFim.addActionListener(e -> aplicarFiltros());
+
+        carregarAnos();
         
         JLabel lblTipo = new JLabel("📌 Tipo:");
         lblTipo.setFont(new Font("Arial", Font.BOLD, 12));
@@ -335,8 +351,13 @@ public class TelaPrincipal extends JFrame {
         btnLimpar.setForeground(Color.WHITE);
         btnLimpar.addActionListener(e -> limparFiltros());
         
-        painelFiltros.add(lblMes);
-        painelFiltros.add(cbMesReferencia);
+        painelFiltros.add(lblPeriodo);
+        painelFiltros.add(lblDe);
+        painelFiltros.add(cbMesInicio);
+        painelFiltros.add(cbAnoInicio);
+        painelFiltros.add(lblAte);
+        painelFiltros.add(cbMesFim);
+        painelFiltros.add(cbAnoFim);
         painelFiltros.add(lblTipo);
         painelFiltros.add(cbTipoSolicitacao);
         painelFiltros.add(btnLimpar);
@@ -519,27 +540,69 @@ public class TelaPrincipal extends JFrame {
         
         return btn;
     }
+
+    private String[] criarItensMeses() {
+        String[] itens = new String[NOMES_MESES.length + 1];
+        itens[0] = "";
+        for (int i = 0; i < NOMES_MESES.length; i++) {
+            itens[i + 1] = String.format("%02d - %s", i + 1, NOMES_MESES[i]);
+        }
+        return itens;
+      }
     
-    private void carregarMeses() {
+    private void carregarAnos() {
+        java.util.Set<String> anos = new java.util.TreeSet<>();
         try {
             List<Solicitacao> lista = dao.listarTodos();
             for (Solicitacao s : lista) {
                 String mes = s.getMesReferencia();
-                if (mes != null && !mes.isEmpty()) {
-                    boolean existe = false;
-                    for (int i = 0; i < cbMesReferencia.getItemCount(); i++) {
-                        if (mes.equals(cbMesReferencia.getItemAt(i))) {
-                            existe = true;
-                            break;
-                        }
-                    }
-                    if (!existe) {
-                        cbMesReferencia.addItem(mes);
-                    }
+                if (mes != null && mes.contains("/")) {
+                    String[] partes = mes.split("/");
+                    if (partes.length == 2) anos.add(partes[1]);
                 }
             }
         } catch (SQLException e) {
-            LOGGER.error("Erro ao carregar meses", e);
+            LOGGER.error("Erro ao carregar anos", e);
+        }
+
+        Object anoInicioSel = cbAnoInicio != null ? cbAnoInicio.getSelectedItem() : null;
+        Object anoFimSel = cbAnoFim != null ? cbAnoFim.getSelectedItem() : null;
+
+        cbAnoInicio.removeAllItems();
+        cbAnoFim.removeAllItems();
+        cbAnoInicio.addItem("");
+        cbAnoFim.addItem("");
+        
+        for (String ano : anos) {
+            cbAnoInicio.addItem(ano);
+            cbAnoFim.addItem(ano);
+        }
+        if (anoInicioSel != null) cbAnoInicio.setSelectedItem(anoInicioSel);
+        if (anoFimSel != null) cbAnoFim.setSelectedItem(anoFimSel);
+    }
+
+    private Integer extrairNumeroMes(String itemCombo) {
+        if (itemCombo == null || itemCombo.isEmpty()) return null;
+        return Integer.parseInt(itemCombo.substring(0, 2));
+    }
+
+    private Integer calcularChavePeriodo(String itemMes, String itemAno, boolean limiteInicial) {
+        if (itemAno == null || itemAno.isEmpty()) return null;
+        int ano = Integer.parseInt(itemAno);
+        Integer mes = extrairNumeroMes(itemMes);
+        if (mes == null) mes = limiteInicial ? 1 : 12;
+        return ano * 100 + mes;
+    }
+
+    private Integer chaveDoMesReferencia(String mesReferencia) {
+        if (mesReferencia == null || !mesReferencia.contains("/")) return null;
+        try {
+            String[] partes = mesReferencia.split("/");
+            int mes = Integer.parseInt(partes[0]);
+            int ano = Integer.parseInt(partes[1]);
+            return ano * 100 + mes;
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
     
@@ -606,8 +669,9 @@ public class TelaPrincipal extends JFrame {
     private void aplicarFiltros() {
         String busca = txtBusca.getText().trim();
         String tipoFiltro = (String) cbTipoFiltro.getSelectedItem();
-        String mes = (String) cbMesReferencia.getSelectedItem();
         String tipo = (String) cbTipoSolicitacao.getSelectedItem();
+        Integer chaveInicio = calcularChavePeriodo((String) cbMesInicio.getSelectedItem(), (String) cbAnoInicio.getSelectedItem(), true);
+        Integer chaveFim = calcularChavePeriodo((String) cbMesFim.getSelectedItem(), (String) cbAnoFim.getSelectedItem(), false);
         
         RowFilter<DefaultTableModel, Object> filter = new RowFilter<>() {
             @Override
@@ -635,11 +699,13 @@ public class TelaPrincipal extends JFrame {
                     }
                 }
                 
-                if (mes != null && !mes.equals("Todos")) {
+                if (chaveInicio != null || chaveFim != null) {
                     String mesTabela = entry.getStringValue(2);
-                    if (!mes.equals(mesTabela)) {
-                        return false;
-                    }
+                    Integer chaveLinha = chaveDoMesReferencia(mesTabela);
+
+                    if (chaveLinha == null) return false;
+                    if (chaveInicio != null && chaveLinha < chaveInicio) return false;
+                    if (chaveFim != null && chaveLinha > chaveFim) return false;
                 }
                 
                 if (tipo != null && !tipo.equals("Todos")) {
@@ -659,7 +725,10 @@ public class TelaPrincipal extends JFrame {
     private void limparFiltros() {
         txtBusca.setText("");
         cbTipoFiltro.setSelectedIndex(0);
-        cbMesReferencia.setSelectedIndex(0);
+        cbMesInicio.setSelectedIndex(0);
+        cbAnoInicio.setSelectedIndex(0);
+        cbMesFim.setSelectedIndex(0);
+        cbAnoFim.setSelectedIndex(0);
         cbTipoSolicitacao.setSelectedIndex(0);
         aplicarFiltros();
     }
@@ -782,7 +851,7 @@ public class TelaPrincipal extends JFrame {
                 // TelaImportacao só grava o log de auditoria se algum registro foi
                 // realmente importado; abrir e fechar a tela não gera log.
                 carregarDados();
-                carregarMeses(); // Atualiza os meses disponíveis após importação
+                carregarAnos();
                 auditoriaService.registrarConsulta("IMPORTACAO", null, "Importação de dados concluída");
                 
             });
