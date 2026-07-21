@@ -336,8 +336,6 @@ public class TelaPrincipal extends JFrame {
         cbMesFim.addActionListener(e -> aplicarFiltros());
         cbAnoFim.addActionListener(e -> aplicarFiltros());
 
-        carregarAnos();
-        
         JLabel lblTipo = new JLabel("📌 Tipo:");
         lblTipo.setFont(new Font("Arial", Font.BOLD, 12));
         
@@ -609,6 +607,7 @@ public class TelaPrincipal extends JFrame {
     private void carregarDados() {
         try {
             LOGGER.info("🔄 Carregando dados...");
+            carregarAnos();
             List<Solicitacao> lista = dao.listarTodos();
             atualizarTabela(lista);
             atualizarTotalizadores(lista);
@@ -667,9 +666,14 @@ public class TelaPrincipal extends JFrame {
     }
     
     private void aplicarFiltros() {
+        if(sorter == null) {
+            return;
+        }
+
         String busca = txtBusca.getText().trim();
         String tipoFiltro = (String) cbTipoFiltro.getSelectedItem();
         String tipo = (String) cbTipoSolicitacao.getSelectedItem();
+
         Integer chaveInicio = calcularChavePeriodo((String) cbMesInicio.getSelectedItem(), (String) cbAnoInicio.getSelectedItem(), true);
         Integer chaveFim = calcularChavePeriodo((String) cbMesFim.getSelectedItem(), (String) cbAnoFim.getSelectedItem(), false);
         
