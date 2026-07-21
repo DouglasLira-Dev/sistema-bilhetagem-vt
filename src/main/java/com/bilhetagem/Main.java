@@ -62,8 +62,8 @@ public class Main {
             
             // Configurar Look and Feel do sistema
             try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-                LOGGER.info("🎨 Look and Feel: {}", UIManager.getSystemLookAndFeelClassName());
+                UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+                LOGGER.info("🎨 Look and Feel: {}", UIManager.getCrossPlatformLookAndFeelClassName());
             } catch (Exception e) {
                 LOGGER.warn("⚠️ Não foi possível configurar Look and Feel do sistema");
             }

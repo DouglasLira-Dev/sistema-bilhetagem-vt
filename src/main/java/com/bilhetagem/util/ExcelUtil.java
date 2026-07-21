@@ -303,8 +303,9 @@ public class ExcelUtil {
             
             // Data de efetivação
             String dataStr = obterValorCelula(row, COL_DATA_EFETIVACAO);
-            if (dataStr != null && !dataStr.isEmpty()) {
+            if (dataStr != null && !dataStr.trim().isEmpty()) {
                 try {
+                    dataStr = dataStr.trim();
                     solicitacao.setDataEfetivacao(LocalDate.parse(dataStr, DATE_FORMATTER));
                 } catch (DateTimeParseException e) {
                     try {
@@ -317,20 +318,24 @@ public class ExcelUtil {
             
             // Mês referência
             String mesRef = obterValorCelula(row, COL_MES_REFERENCIA);
-            if (mesRef != null && !mesRef.isEmpty()) {
+            if (mesRef != null && !mesRef.trim().isEmpty()) {
                 solicitacao.setMesReferencia(mesRef.trim());
             }
             
             // Matrícula
             String matricula = obterValorCelula(row, COL_MATRICULA);
-            if (matricula != null && !matricula.isEmpty()) {
+            if (matricula != null && !matricula.trim().isEmpty()) {
                 solicitacao.setMatricula(matricula.trim());
             }
             
             // CPF
             String cpf = obterValorCelula(row, COL_CPF);
-            if (cpf != null && !cpf.isEmpty()) {
+            if (cpf != null && !cpf.trim().isEmpty()) {
                 String cpfLimpo = cpf.trim().replaceAll("[^0-9]", "");
+                if (cpfLimpo.length() == 10) {
+                    cpfLimpo = "0" + cpfLimpo; // Adiciona zero à esquerda se necessário 
+                }
+
                 if (!CpfUtil.isValid(cpfLimpo)) {
                     LOGGER.warn("CPF inválido na linha {}: {}", row.getRowNum(), cpf);
                     return null;
@@ -340,7 +345,7 @@ public class ExcelUtil {
             
             // Nome
             String nome = obterValorCelula(row, COL_NOME);
-            if (nome != null && !nome.isEmpty()) {
+            if (nome != null && !nome.trim().isEmpty()) {
                 solicitacao.setNome(nome.trim());
             }
             

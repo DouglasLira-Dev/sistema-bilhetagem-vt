@@ -782,6 +782,9 @@ public class TelaPrincipal extends JFrame {
                 // TelaImportacao só grava o log de auditoria se algum registro foi
                 // realmente importado; abrir e fechar a tela não gera log.
                 carregarDados();
+                carregarMeses(); // Atualiza os meses disponíveis após importação
+                auditoriaService.registrarConsulta("IMPORTACAO", null, "Importação de dados concluída");
+                
             });
         } catch (SecurityException e) {
             JOptionPane.showMessageDialog(this, e.getMessage(), "Acesso Negado", 
